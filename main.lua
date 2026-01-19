@@ -1,544 +1,516 @@
--- Vanzyxxx Mobile Executor - UI Horizontal
--- Automatically shows menu on execution
+-- Vanzyxxx Auto Script - MENU PASTI MUNCUL
+-- Logo di pojok kanan atas, klik untuk buka menu
 
 if not game:GetService("RunService"):IsClient() then
     return
 end
 
--- Prevent duplicate execution
-if _G.VanzyxxxMobileLoaded then
-    print("[Vanzyxxx] Script already loaded!")
-    return
+-- Prevent duplicate
+if _G.VanzyxxxLoaded then 
+    print("Script already loaded!")
+    return 
 end
-_G.VanzyxxxMobileLoaded = true
+_G.VanzyxxxLoaded = true
 
-print("[Vanzyxxx] Starting mobile executor...")
+print("[Vanzyxxx] Starting script...")
 
--- Services
 local Players = game:GetService("Players")
 local plr = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
--- Wait for player
+-- Wait for everything
 repeat task.wait() until plr
 repeat task.wait() until plr.PlayerGui
 
 print("[Vanzyxxx] Player loaded!")
 
 -- ========================
--- MODULE LOADER
--- ========================
-local Modules = {}
-local function loadModule(name)
-    if Modules[name] then return Modules[name] end
-    
-    -- In production, load from GitHub
-    -- local url = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/modules/" .. name
-    -- local success, module = pcall(function()
-    --     return loadstring(game:HttpGet(url))()
-    -- end)
-    
-    -- For now, load from local modules folder
-    local module = require(script:WaitForChild("Modules"):WaitForChild(name:gsub(".lua", "")))
-    Modules[name] = module
-    return module
-end
-
--- ========================
--- CREATE MAIN UI (HORIZONTAL LAYOUT)
+-- STEP 1: CREATE BASIC GUI (PASTI MUNCUL)
 -- ========================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "VanzyxxxMobile"
+ScreenGui.Name = "VanzyxxxGUIMain"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 999
+ScreenGui.DisplayOrder = 999 -- Highest priority
+
+-- Add to PlayerGui IMMEDIATELY
 ScreenGui.Parent = plr:WaitForChild("PlayerGui")
 
--- Main Container (Horizontal)
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainContainer"
-MainFrame.Size = UDim2.new(0.8, 0, 0.7, 0)
-MainFrame.Position = UDim2.new(0.1, 0, 0.15, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-MainFrame.BackgroundTransparency = 0.05
-MainFrame.Visible = true
-MainFrame.Parent = ScreenGui
+print("[Vanzyxxx] ScreenGui created and parented!")
 
--- Make draggable
-local dragging = false
-local dragInput, dragStart, startPos
+-- ========================
+-- STEP 2: CREATE LOGO BUTTON (PASTI MUNCUL)
+-- ========================
+local logo = Instance.new("ImageButton")
+logo.Name = "LogoButton"
+logo.Size = UDim2.new(0, 70, 0, 70)
+logo.Position = UDim2.new(1, -80, 0, 20) -- Top right corner
+logo.BackgroundColor3 = Color3.fromRGB(60, 60, 100)
+logo.BackgroundTransparency = 0
+logo.Image = "rbxassetid://6764432408" -- Roblox icon
+logo.ImageTransparency = 0
 
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
+-- Make sure logo is visible
+logo.Active = true
+logo.Selectable = true
+logo.Visible = true
 
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
+logo.Parent = ScreenGui
 
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input == dragInput) then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-end)
+print("[Vanzyxxx] Logo button created!")
 
--- Styling
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0.03, 0)
-corner.Parent = MainFrame
+-- Styling for logo
+local logoCorner = Instance.new("UICorner")
+logoCorner.CornerRadius = UDim.new(0.2, 0)
+logoCorner.Parent = logo
 
-local shadow = Instance.new("UIStroke")
-shadow.Color = Color3.fromRGB(0, 0, 0)
-shadow.Thickness = 2
-shadow.Transparency = 0.7
-shadow.Parent = MainFrame
+local logoStroke = Instance.new("UIStroke")
+logoStroke.Color = Color3.fromRGB(100, 150, 255)
+logoStroke.Thickness = 3
+logoStroke.Parent = logo
 
--- Header Bar
-local Header = Instance.new("Frame")
-Header.Name = "Header"
-Header.Size = UDim2.new(1, 0, 0, 50)
-Header.Position = UDim2.new(0, 0, 0, 0)
-Header.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-Header.Parent = MainFrame
+-- Add glow effect
+local logoGlow = Instance.new("UIStroke")
+logoGlow.Color = Color3.fromRGB(100, 150, 255)
+logoGlow.Thickness = 6
+logoGlow.Transparency = 0.7
+logoGlow.Name = "Glow"
+logoGlow.Parent = logo
 
-local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0.03, 0)
-headerCorner.Parent = Header
+-- ========================
+-- STEP 3: CREATE MENU FRAME (DIBUAT TAPI DISEMBUNYIKAN DULU)
+-- ========================
+local menuVisible = false
+local menu = Instance.new("Frame")
+menu.Name = "MainMenu"
+menu.Size = UDim2.new(0, 300, 0, 350)
+menu.Position = UDim2.new(0.5, -150, 0.5, -175) -- Center screen
+menu.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+menu.BackgroundTransparency = 0
+menu.Visible = false -- Start hidden
+menu.Parent = ScreenGui
 
--- Logo
-local Logo = Instance.new("ImageLabel")
-Logo.Name = "Logo"
-Logo.Size = UDim2.new(0, 40, 0, 40)
-Logo.Position = UDim2.new(0, 10, 0, 5)
-Logo.BackgroundTransparency = 1
-Logo.Image = "rbxassetid://6764432408"
-Logo.Parent = Header
+print("[Vanzyxxx] Menu frame created!")
+
+-- Style menu
+local menuCorner = Instance.new("UICorner")
+menuCorner.CornerRadius = UDim.new(0.1, 0)
+menuCorner.Parent = menu
+
+local menuShadow = Instance.new("UIStroke")
+menuShadow.Color = Color3.fromRGB(0, 0, 0)
+menuShadow.Thickness = 3
+menuShadow.Transparency = 0.5
+menuShadow.Parent = menu
 
 -- Title
-local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Text = "VANZYXXX MOBILE"
-Title.Size = UDim2.new(0.5, 0, 1, 0)
-Title.Position = UDim2.new(0.1, 0, 0, 0)
-Title.BackgroundTransparency = 1
-Title.TextColor3 = Color3.fromRGB(100, 150, 255)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
+local title = Instance.new("TextLabel")
+title.Name = "Title"
+title.Text = "🚀 VANZYXXX MENU"
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextStrokeTransparency = 0
+title.Parent = menu
 
--- Close Button
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Name = "CloseButton"
-CloseBtn.Text = "✕"
-CloseBtn.Size = UDim2.new(0, 40, 0, 40)
-CloseBtn.Position = UDim2.new(1, -50, 0, 5)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 18
-CloseBtn.Parent = Header
+-- Status bar
+local status = Instance.new("TextLabel")
+status.Name = "Status"
+status.Text = "✅ READY"
+status.Size = UDim2.new(1, -20, 0, 35)
+status.Position = UDim2.new(0, 10, 0, 60)
+status.BackgroundColor3 = Color3.fromRGB(45, 45, 75)
+status.TextColor3 = Color3.fromRGB(100, 255, 100)
+status.Font = Enum.Font.Gotham
+status.TextSize = 16
+status.Parent = menu
+
+-- Close button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseButton"
+closeBtn.Text = "✕"
+closeBtn.Size = UDim2.new(0, 40, 0, 40)
+closeBtn.Position = UDim2.new(1, -45, 0, 5)
+closeBtn.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 20
+closeBtn.Parent = menu
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0.2, 0)
-closeCorner.Parent = CloseBtn
+closeCorner.Parent = closeBtn
+
+print("[Vanzyxxx] All UI elements created!")
 
 -- ========================
--- SIDEBAR & PANEL LAYOUT
+-- STEP 4: TOGGLE MENU FUNCTION
 -- ========================
-local ContentArea = Instance.new("Frame")
-ContentArea.Name = "ContentArea"
-ContentArea.Size = UDim2.new(1, 0, 1, -50)
-ContentArea.Position = UDim2.new(0, 0, 0, 50)
-ContentArea.BackgroundTransparency = 1
-ContentArea.Parent = MainFrame
-
--- Left Sidebar (30%)
-local Sidebar = Instance.new("Frame")
-Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0.3, 0, 1, 0)
-Sidebar.Position = UDim2.new(0, 0, 0, 0)
-Sidebar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-Sidebar.Parent = ContentArea
-
-local sidebarCorner = Instance.new("UICorner")
-sidebarCorner.CornerRadius = UDim.new(0.02, 0)
-sidebarCorner.Parent = Sidebar
-
--- Right Panel (70%)
-local RightPanel = Instance.new("Frame")
-RightPanel.Name = "RightPanel"
-RightPanel.Size = UDim2.new(0.7, 0, 1, 0)
-RightPanel.Position = UDim2.new(0.3, 0, 0, 0)
-RightPanel.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-RightPanel.Parent = ContentArea
-
-local panelCorner = Instance.new("UICorner")
-panelCorner.CornerRadius = UDim.new(0.02, 0)
-panelCorner.Parent = RightPanel
+local function toggleMenu()
+    menuVisible = not menuVisible
+    menu.Visible = menuVisible
+    
+    if menuVisible then
+        -- Menu opened
+        logo.BackgroundColor3 = Color3.fromRGB(80, 100, 150)
+        logoStroke.Color = Color3.fromRGB(150, 200, 255)
+        print("[Menu] Opened!")
+    else
+        -- Menu closed
+        logo.BackgroundColor3 = Color3.fromRGB(60, 60, 100)
+        logoStroke.Color = Color3.fromRGB(100, 150, 255)
+        print("[Menu] Closed!")
+    end
+end
 
 -- ========================
--- SIDEBAR BUTTONS
+-- STEP 5: CONNECT CLICK EVENTS
 -- ========================
-local SidebarButtons = {
-    {Name = "🏃 AUTO OBBY", Icon = "🏃", Module = "obby.lua"},
-    {Name = "📍 CHECKPOINT", Icon = "📍", Module = "cekpoint.lua"},
-    {Name = "👤 TELEPORT", Icon = "👤", Module = "teleportplayers.lua"},
-    {Name = "✈️ FLY", Icon = "✈️", Module = "fly.lua"}
-}
+-- Logo click to open/close menu
+logo.MouseButton1Click:Connect(function()
+    print("Logo clicked! Toggling menu...")
+    toggleMenu()
+end)
 
-local buttonY = 10
-local selectedButton = nil
+-- Close button click
+closeBtn.MouseButton1Click:Connect(function()
+    print("Close button clicked!")
+    toggleMenu()
+end)
 
-local function createSidebarButton(info, index)
-    local button = Instance.new("TextButton")
-    button.Name = "Btn_" .. info.Name
-    button.Text = "   " .. info.Icon .. " " .. info.Name
-    button.Size = UDim2.new(0.9, 0, 0, 45)
-    button.Position = UDim2.new(0.05, 0, 0, buttonY)
-    button.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-    button.TextColor3 = Color3.fromRGB(200, 200, 220)
-    button.Font = Enum.Font.Gotham
-    button.TextSize = 14
-    button.TextXAlignment = Enum.TextXAlignment.Left
-    button.AutoButtonColor = true
-    button.Parent = Sidebar
+-- ========================
+-- STEP 6: CREATE BUTTONS INSIDE MENU
+-- ========================
+local buttonY = 105 -- Starting Y position for buttons
+
+local function createButton(text, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Name = "Btn_" .. text
+    btn.Text = text
+    btn.Size = UDim2.new(1, -20, 0, 45)
+    btn.Position = UDim2.new(0, 10, 0, buttonY)
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.AutoButtonColor = true
+    btn.Parent = menu
     
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0.08, 0)
-    buttonCorner.Parent = button
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0.1, 0)
+    btnCorner.Parent = btn
     
-    -- Highlight effect
-    local highlight = Instance.new("Frame")
-    highlight.Name = "Highlight"
-    highlight.Size = UDim2.new(0.03, 0, 0.7, 0)
-    highlight.Position = UDim2.new(0, 5, 0.15, 0)
-    highlight.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
-    highlight.Visible = false
-    highlight.Parent = button
-    
-    local highlightCorner = Instance.new("UICorner")
-    highlightCorner.CornerRadius = UDim.new(1, 0)
-    highlightCorner.Parent = highlight
-    
-    button.MouseButton1Click:Connect(function()
-        -- Deselect previous
-        if selectedButton then
-            selectedButton.Highlight.Visible = false
-            selectedButton.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    -- Click event
+    btn.MouseButton1Click:Connect(function()
+        print("Button clicked:", text)
+        if callback then
+            callback()
         end
-        
-        -- Select current
-        selectedButton = button
-        button.Highlight.Visible = true
-        button.BackgroundColor3 = Color3.fromRGB(50, 50, 75)
-        
-        -- Load module and show in right panel
-        loadModule(info.Module)
-        
-        -- Show module UI in right panel
-        print("Loading module:", info.Module)
-        -- Module-specific UI will be created here
     end)
     
     buttonY = buttonY + 50
-    return button
+    return btn
 end
 
--- Create all sidebar buttons
-local buttons = {}
-for i, info in ipairs(SidebarButtons) do
-    local btn = createSidebarButton(info, i)
-    buttons[i] = btn
-end
+print("[Vanzyxxx] Creating buttons...")
 
 -- ========================
--- RIGHT PANEL CONTENT MANAGER
+-- STEP 7: FLY SYSTEM
 -- ========================
-local function clearRightPanel()
-    for _, child in ipairs(RightPanel:GetChildren()) do
-        if child.Name ~= "UICorner" then
-            child:Destroy()
+local flyEnabled = false
+local flyVelocity = nil
+local flyGyro = nil
+
+local function enableFly()
+    local character = plr.Character
+    if not character then 
+        status.Text = "❌ NO CHARACTER"
+        return 
+    end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then 
+        status.Text = "❌ NO ROOT PART"
+        return 
+    end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then 
+        status.Text = "❌ NO HUMANOID"
+        return 
+    end
+    
+    -- Clean old
+    if flyVelocity then flyVelocity:Destroy() end
+    if flyGyro then flyGyro:Destroy() end
+    
+    -- Create fly objects
+    flyVelocity = Instance.new("BodyVelocity")
+    flyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+    flyVelocity.P = 1000
+    flyVelocity.Parent = hrp
+    
+    flyGyro = Instance.new("BodyGyro")
+    flyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
+    flyGyro.CFrame = hrp.CFrame
+    flyGyro.P = 1000
+    flyGyro.Parent = hrp
+    
+    -- Disable gravity
+    humanoid.PlatformStand = true
+    
+    flyEnabled = true
+    status.Text = "✈️ FLY ENABLED"
+    
+    print("[Fly] Enabled!")
+end
+
+local function disableFly()
+    if flyVelocity then 
+        flyVelocity:Destroy() 
+        flyVelocity = nil 
+    end
+    
+    if flyGyro then 
+        flyGyro:Destroy() 
+        flyGyro = nil 
+    end
+    
+    local character = plr.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = false
         end
     end
-end
-
-local function showTitle(title)
-    clearRightPanel()
     
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Name = "PanelTitle"
-    titleLabel.Text = title
-    titleLabel.Size = UDim2.new(1, 0, 0, 40)
-    titleLabel.Position = UDim2.new(0, 0, 0, 10)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.TextColor3 = Color3.fromRGB(100, 150, 255)
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.TextSize = 20
-    titleLabel.Parent = RightPanel
+    flyEnabled = false
+    status.Text = "✅ READY"
+    
+    print("[Fly] Disabled!")
 end
 
 -- ========================
--- MODULE UI LOADERS
+-- STEP 8: AUTO CHECKPOINT
 -- ========================
-local ModuleUI = {}
-
-ModuleUI["obby.lua"] = function()
-    showTitle("🏃 AUTO OBBY RUN")
-    
-    -- Control buttons
-    local buttonY = 60
-    local buttons = {
-        {Text = "▶️ START", Color = Color3.fromRGB(50, 180, 80)},
-        {Text = "⏸️ PAUSE", Color = Color3.fromRGB(220, 180, 50)},
-        {Text = "⏹️ STOP", Color = Color3.fromRGB(220, 80, 80)},
-        {Text = "🔄 RESUME", Color = Color3.fromRGB(50, 120, 220)}
-    }
-    
-    for _, btnInfo in ipairs(buttons) do
-        local btn = Instance.new("TextButton")
-        btn.Text = btnInfo.Text
-        btn.Size = UDim2.new(0.9, 0, 0, 45)
-        btn.Position = UDim2.new(0.05, 0, 0, buttonY)
-        btn.BackgroundColor3 = btnInfo.Color
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.Font = Enum.Font.GothamBold
-        btn.TextSize = 16
-        btn.Parent = RightPanel
-        
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0.1, 0)
-        corner.Parent = btn
-        
-        buttonY = buttonY + 55
+local function autoCheckpoint()
+    local character = plr.Character
+    if not character then 
+        status.Text = "❌ NO CHARACTER"
+        return 
     end
     
-    -- Status label
-    local status = Instance.new("TextLabel")
-    status.Text = "Status: READY"
-    status.Size = UDim2.new(0.9, 0, 0, 30)
-    status.Position = UDim2.new(0.05, 0, 0, buttonY + 10)
-    status.BackgroundTransparency = 1
-    status.TextColor3 = Color3.fromRGB(100, 255, 100)
-    status.Font = Enum.Font.Gotham
-    status.TextSize = 14
-    status.Parent = RightPanel
-end
-
-ModuleUI["cekpoint.lua"] = function()
-    showTitle("📍 CHECKPOINT SELECTOR")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then 
+        status.Text = "❌ NO ROOT PART"
+        return 
+    end
     
-    -- Search bar
-    local searchBox = Instance.new("TextBox")
-    searchBox.PlaceholderText = "Search checkpoints..."
-    searchBox.Size = UDim2.new(0.9, 0, 0, 35)
-    searchBox.Position = UDim2.new(0.05, 0, 0, 60)
-    searchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    searchBox.Font = Enum.Font.Gotham
-    searchBox.TextSize = 14
-    searchBox.Parent = RightPanel
+    status.Text = "🔍 SEARCHING CP..."
     
-    local searchCorner = Instance.new("UICorner")
-    searchCorner.CornerRadius = UDim.new(0.1, 0)
-    searchCorner.Parent = searchBox
+    -- Simple checkpoint finder
+    local checkpoints = {}
     
-    -- Refresh button
-    local refreshBtn = Instance.new("TextButton")
-    refreshBtn.Text = "🔄 REFRESH"
-    refreshBtn.Size = UDim2.new(0.9, 0, 0, 40)
-    refreshBtn.Position = UDim2.new(0.05, 0, 0, 105)
-    refreshBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
-    refreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    refreshBtn.Font = Enum.Font.GothamBold
-    refreshBtn.TextSize = 14
-    refreshBtn.Parent = RightPanel
+    -- Find checkpoints in workspace
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local nameLower = obj.Name:lower()
+            if nameLower:find("checkpoint") or nameLower:find("cp") then
+                table.insert(checkpoints, {
+                    Part = obj,
+                    Position = obj.Position,
+                    Name = obj.Name
+                })
+            end
+        end
+    end
     
-    local refreshCorner = Instance.new("UICorner")
-    refreshCorner.CornerRadius = UDim.new(0.1, 0)
-    refreshCorner.Parent = refreshBtn
+    if #checkpoints == 0 then
+        status.Text = "❌ NO CP FOUND"
+        return
+    end
     
-    -- Checkpoints list (scrollable)
-    local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Size = UDim2.new(0.9, 0, 0, 200)
-    scrollFrame.Position = UDim2.new(0.05, 0, 0, 155)
-    scrollFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
-    scrollFrame.ScrollBarThickness = 6
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scrollFrame.Parent = RightPanel
+    status.Text = "🎯 FOUND " .. #checkpoints .. " CP"
+    task.wait(1)
     
-    local scrollCorner = Instance.new("UICorner")
-    scrollCorner.CornerRadius = UDim.new(0.1, 0)
-    scrollCorner.Parent = scrollFrame
-end
-
-ModuleUI["teleportplayers.lua"] = function()
-    showTitle("👤 TELEPORT PLAYERS")
+    -- Teleport to each checkpoint
+    for i, cp in ipairs(checkpoints) do
+        status.Text = "📍 CP " .. i .. "/" .. #checkpoints
+        
+        -- Disable collision
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        
+        -- Teleport
+        hrp.CFrame = CFrame.new(cp.Position + Vector3.new(0, 5, 0))
+        
+        -- Wait and restore collision
+        task.wait(0.5)
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = true
+            end
+        end
+        
+        task.wait(0.5)
+    end
     
-    -- Mode selector
-    local modeFrame = Instance.new("Frame")
-    modeFrame.Size = UDim2.new(0.9, 0, 0, 40)
-    modeFrame.Position = UDim2.new(0.05, 0, 0, 60)
-    modeFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    modeFrame.Parent = RightPanel
-    
-    local modeCorner = Instance.new("UICorner")
-    modeCorner.CornerRadius = UDim.new(0.1, 0)
-    modeCorner.Parent = modeFrame
-    
-    local mode1 = Instance.new("TextButton")
-    mode1.Text = "Player → Me"
-    mode1.Size = UDim2.new(0.48, 0, 0.9, 0)
-    mode1.Position = UDim2.new(0.01, 0, 0.05, 0)
-    mode1.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
-    mode1.TextColor3 = Color3.fromRGB(255, 255, 255)
-    mode1.Font = Enum.Font.GothamBold
-    mode1.TextSize = 12
-    mode1.Parent = modeFrame
-    
-    local mode2 = Instance.new("TextButton")
-    mode2.Text = "Me → Player"
-    mode2.Size = UDim2.new(0.48, 0, 0.9, 0)
-    mode2.Position = UDim2.new(0.51, 0, 0.05, 0)
-    mode2.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    mode2.TextColor3 = Color3.fromRGB(200, 200, 220)
-    mode2.Font = Enum.Font.GothamBold
-    mode2.TextSize = 12
-    mode2.Parent = modeFrame
-    
-    -- Search
-    local searchBox = Instance.new("TextBox")
-    searchBox.PlaceholderText = "Search players..."
-    searchBox.Size = UDim2.new(0.9, 0, 0, 35)
-    searchBox.Position = UDim2.new(0.05, 0, 0, 110)
-    searchBox.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
-    searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    searchBox.Font = Enum.Font.Gotham
-    searchBox.TextSize = 14
-    searchBox.Parent = RightPanel
-    
-    local searchCorner = Instance.new("UICorner")
-    searchCorner.CornerRadius = UDim.new(0.1, 0)
-    searchCorner.Parent = searchBox
-    
-    -- Teleport button
-    local teleportBtn = Instance.new("TextButton")
-    teleportBtn.Text = "📤 TELEPORT SELECTED"
-    teleportBtn.Size = UDim2.new(0.9, 0, 0, 45)
-    teleportBtn.Position = UDim2.new(0.05, 0, 0.85, 0)
-    teleportBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 80)
-    teleportBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    teleportBtn.Font = Enum.Font.GothamBold
-    teleportBtn.TextSize = 16
-    teleportBtn.Parent = RightPanel
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0.1, 0)
-    btnCorner.Parent = teleportBtn
-end
-
-ModuleUI["fly.lua"] = function()
-    showTitle("✈️ FLY SYSTEM")
-    
-    -- Toggle button
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Text = "✈️ ENABLE FLY"
-    toggleBtn.Size = UDim2.new(0.9, 0, 0, 50)
-    toggleBtn.Position = UDim2.new(0.05, 0, 0, 60)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
-    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    toggleBtn.Font = Enum.Font.GothamBold
-    toggleBtn.TextSize = 16
-    toggleBtn.Parent = RightPanel
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0.1, 0)
-    btnCorner.Parent = toggleBtn
-    
-    -- Speed control
-    local speedLabel = Instance.new("TextLabel")
-    speedLabel.Text = "Speed: 50"
-    speedLabel.Size = UDim2.new(0.9, 0, 0, 30)
-    speedLabel.Position = UDim2.new(0.05, 0, 0, 120)
-    speedLabel.BackgroundTransparency = 1
-    speedLabel.TextColor3 = Color3.fromRGB(200, 200, 220)
-    speedLabel.Font = Enum.Font.Gotham
-    speedLabel.TextSize = 14
-    speedLabel.Parent = RightPanel
-    
-    local speedSlider = Instance.new("Frame")
-    speedSlider.Size = UDim2.new(0.9, 0, 0, 20)
-    speedSlider.Position = UDim2.new(0.05, 0, 0, 150)
-    speedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    speedSlider.Parent = RightPanel
-    
-    local sliderCorner = Instance.new("UICorner")
-    sliderCorner.CornerRadius = UDim.new(0.5, 0)
-    sliderCorner.Parent = speedSlider
-    
-    -- Vertical controls
-    local upBtn = Instance.new("TextButton")
-    upBtn.Text = "⬆️ UP"
-    upBtn.Size = UDim2.new(0.4, 0, 0, 40)
-    upBtn.Position = UDim2.new(0.05, 0, 0, 180)
-    upBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    upBtn.Font = Enum.Font.GothamBold
-    upBtn.TextSize = 14
-    upBtn.Parent = RightPanel
-    
-    local downBtn = Instance.new("TextButton")
-    downBtn.Text = "⬇️ DOWN"
-    downBtn.Size = UDim2.new(0.4, 0, 0, 40)
-    downBtn.Position = UDim2.new(0.55, 0, 0, 180)
-    downBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-    downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    downBtn.Font = Enum.Font.GothamBold
-    downBtn.TextSize = 14
-    downBtn.Parent = RightPanel
-    
-    local controlCorner = Instance.new("UICorner")
-    controlCorner.CornerRadius = UDim.new(0.1, 0)
-    controlCorner.Parent = upBtn
-    controlCorner:Clone().Parent = downBtn
+    status.Text = "🎉 COMPLETED!"
+    print("[AutoCP] Done!")
 end
 
 -- ========================
--- EVENT HANDLERS
+-- STEP 9: TELEPORT FUNCTIONS
 -- ========================
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-    _G.VanzyxxxMobileLoaded = false
-    print("[Vanzyxxx] Menu closed")
+local function teleportToNearestPlayer()
+    local character = plr.Character
+    if not character then 
+        status.Text = "❌ NO CHARACTER"
+        return 
+    end
+    
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then 
+        status.Text = "❌ NO ROOT PART"
+        return 
+    end
+    
+    -- Find nearest player
+    local nearestPlayer = nil
+    local nearestDistance = math.huge
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= plr and otherPlayer.Character then
+            local otherHrp = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if otherHrp then
+                local distance = (hrp.Position - otherHrp.Position).Magnitude
+                if distance < nearestDistance then
+                    nearestDistance = distance
+                    nearestPlayer = otherPlayer
+                end
+            end
+        end
+    end
+    
+    if not nearestPlayer then
+        status.Text = "❌ NO PLAYERS NEARBY"
+        return
+    end
+    
+    local targetHrp = nearestPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if targetHrp then
+        status.Text = "📍 TELEPORTING..."
+        hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, -3)
+        task.wait(0.5)
+        status.Text = "✅ TELEPORTED"
+    end
+end
+
+local function teleportToSpawn()
+    local character = plr.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        -- Find spawn location
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj.Name:lower():find("spawn") or obj.Name:lower():find("start") then
+                local targetPos = obj.Position
+                if obj:IsA("BasePart") then
+                    targetPos = obj.Position
+                elseif obj:IsA("Model") then
+                    local primary = obj.PrimaryPart
+                    if primary then
+                        targetPos = primary.Position
+                    end
+                end
+                
+                character.HumanoidRootPart.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+                status.Text = "📍 AT SPAWN"
+                return
+            end
+        end
+        
+        -- Default to 0,0,0 if no spawn found
+        character.HumanoidRootPart.CFrame = CFrame.new(0, 10, 0)
+        status.Text = "📍 CENTER MAP"
+    end
+end
+
+-- ========================
+-- STEP 10: CREATE ALL BUTTONS
+-- ========================
+print("[Vanzyxxx] Creating menu buttons...")
+
+-- Fly Toggle Button
+local flyBtn = createButton("✈️ TOGGLE FLY", Color3.fromRGB(50, 120, 220), function()
+    if flyEnabled then
+        disableFly()
+        flyBtn.Text = "✈️ ENABLE FLY"
+        flyBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+    else
+        enableFly()
+        flyBtn.Text = "✈️ DISABLE FLY"
+        flyBtn.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
+    end
 end)
 
--- Auto-select first button on load
-task.wait(0.5)
-if buttons[1] then
-    buttons[1]:MouseButton1Click()
+-- Auto Checkpoint Button
+createButton("▶️ AUTO CHECKPOINT", Color3.fromRGB(50, 180, 80), function()
+    autoCheckpoint()
+end)
+
+-- Teleport to Player Button
+createButton("👤 TELEPORT TO PLAYER", Color3.fromRGB(220, 120, 50), function()
+    teleportToNearestPlayer()
+end)
+
+-- Teleport to Spawn Button
+createButton("📌 TELEPORT TO SPAWN", Color3.fromRGB(180, 80, 220), function()
+    teleportToSpawn()
+end)
+
+-- Noclip Button
+createButton("👻 TOGGLE NOCLIP", Color3.fromRGB(100, 100, 200), function()
+    local character = plr.Character
+    if character then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = not part.CanCollide
+            end
+        end
+        status.Text = part.CanCollide and "✅ NOCLIP OFF" or "👻 NOCLIP ON"
+    end
+end)
+
+-- ========================
+-- STEP 11: AUTO-SHOW MENU ON START (TESTING)
+-- ========================
+-- Tunggu 1 detik lalu tampilkan menu untuk testing
+task.wait(1)
+print("[Vanzyxxx] Auto-showing menu for testing...")
+toggleMenu() -- Buka menu otomatis
+
+-- Auto-close setelah 10 detik
+task.wait(10)
+if menuVisible then
+    print("[Vanzyxxx] Auto-closing menu...")
+    toggleMenu()
 end
 
+-- ========================
+-- STEP 12: FINAL MESSAGE
+-- ========================
 print("=======================================")
-print("VANZYXXX MOBILE EXECUTOR LOADED!")
-print("UI Layout: Horizontal Sidebar + Panel")
-print("Modules: Auto Obby, Checkpoint, Teleport, Fly")
+print("VANZYXXX SCRIPT LOADED SUCCESSFULLY!")
+print("1. Logo biru di pojok kanan atas")
+print("2. Klik logo untuk buka/tutup menu")
+print("3. Menu ada di tengah layar")
 print("=======================================")
+
+-- Notify player
+status.Text = "✅ READY - Click logo!"

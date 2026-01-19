@@ -1,5 +1,5 @@
 -- Fly System Module for Mobile
--- Mobile-friendly fly with joystick controls
+-- Mobile-friendly fly system
 
 local module = {}
 
@@ -16,16 +16,42 @@ local character = nil
 local hrp = nil
 local humanoid = nil
 local joystick = nil
-local flySpeed = 50
 
--- Initialize
+-- Mobile joystick
+function module.createJoystick(parent)
+    local joystickFrame = Instance.new("Frame")
+    joystickFrame.Name = "FlyJoystick"
+    joystickFrame.Size = UDim2.new(0, 150, 0, 150)
+    joystickFrame.Position = UDim2.new(0, 20, 1, -170)
+    joystickFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    joystickFrame.BackgroundTransparency = 0.4
+    joystickFrame.Visible = false
+    joystickFrame.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = joystickFrame
+    
+    local center = Instance.new("Frame")
+    center.Name = "Center"
+    center.Size = UDim2.new(0, 50, 0, 50)
+    center.Position = UDim2.new(0.5, -25, 0.5, -25)
+    center.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    center.Parent = joystickFrame
+    
+    local centerCorner = Instance.new("UICorner")
+    centerCorner.CornerRadius = UDim.new(1, 0)
+    centerCorner.Parent = center
+    
+    return joystickFrame
+end
+
 function module.init(char, rootPart, hum)
     character = char
     hrp = rootPart
     humanoid = hum
 end
 
--- Toggle fly
 function module.toggle(state)
     if state == nil then
         state = not flyEnabled
@@ -36,24 +62,20 @@ function module.toggle(state)
     else
         module.disable()
     end
-    
-    return flyEnabled
 end
 
--- Enable fly
 function module.enable()
     if not character or not hrp then
-        print("[Fly] No character found")
         return false
     end
     
     if flyEnabled then return true end
     
-    -- Clean old physics objects
+    -- Clean old
     if velocity then velocity:Destroy() end
     if bodyGyro then bodyGyro:Destroy() end
     
-    -- Create physics for fly
+    -- Create physics
     velocity = Instance.new("BodyVelocity")
     velocity.Velocity = Vector3.new(0, 0, 0)
     velocity.MaxForce = Vector3.new(10000, 10000, 10000)
@@ -73,111 +95,28 @@ function module.enable()
     
     flyEnabled = true
     
-    -- Create mobile joystick
-    createJoystick()
-    
-    -- Start control loop
-    startControlLoop()
-    
-    print("[Fly] Enabled with mobile controls")
-    return true
-end
-
--- Disable fly
-function module.disable()
-    if not flyEnabled then return end
-    
-    flyEnabled = false
-    
-    -- Remove physics
-    if velocity then
-        velocity:Destroy()
-        velocity = nil
-    end
-    
-    if bodyGyro then
-        bodyGyro:Destroy()
-        bodyGyro = nil
-    end
-    
-    -- Remove joystick
-    if joystick then
-        joystick:Destroy()
-        joystick = nil
-    end
-    
-    -- Restore gravity
-    if humanoid then
-        humanoid.PlatformStand = false
-    end
-    
-    print("[Fly] Disabled")
-end
-
--- Set fly speed
-function module.setSpeed(speed)
-    flySpeed = math.clamp(speed, 10, 200)
-    print("[Fly] Speed set to:", flySpeed)
-end
-
--- Get current state
-function module.isEnabled()
-    return flyEnabled
-end
-
--- Create mobile joystick
-function createJoystick()
+    -- Create mobile controls
     local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-    
-    joystick = Instance.new("Frame")
-    joystick.Name = "FlyJoystick"
-    joystick.Size = UDim2.new(0, 120, 0, 120)
-    joystick.Position = UDim2.new(0, 20, 1, -140)
-    joystick.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    joystick.BackgroundTransparency = 0.3
+    joystick = module.createJoystick(playerGui)
     joystick.Visible = true
-    joystick.Parent = playerGui
     
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = joystick
-    
-    local center = Instance.new("Frame")
-    center.Name = "Center"
-    center.Size = UDim2.new(0, 40, 0, 40)
-    center.Position = UDim2.new(0.5, -20, 0.5, -20)
-    center.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
-    center.BackgroundTransparency = 0.2
-    center.Parent = joystick
-    
-    local centerCorner = Instance.new("UICorner")
-    centerCorner.CornerRadius = UDim.new(1, 0)
-    centerCorner.Parent = center
-end
-
--- Control loop for mobile
-function startControlLoop()
-    if not flyEnabled then return end
-    
+    -- Mobile control loop
     coroutine.wrap(function()
         local touchActive = false
         local touchStart = nil
-        local joystickPos = joystick.AbsolutePosition + joystick.AbsoluteSize / 2
+        local joystickCenter = joystick.AbsolutePosition + joystick.AbsoluteSize / 2
         
-        -- Touch input handling
         UserInputService.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch then
                 local touchPos = Vector2.new(input.Position.X, input.Position.Y)
-                
-                -- Check if touch is on joystick
-                local joystickBounds = Rect.new(
-                    joystick.AbsolutePosition.X - 50,
-                    joystick.AbsolutePosition.Y - 50,
-                    joystick.AbsolutePosition.X + joystick.AbsoluteSize.X + 50,
-                    joystick.AbsolutePosition.Y + joystick.AbsoluteSize.Y + 50
+                local joystickRect = Rect.new(
+                    joystick.AbsolutePosition.X,
+                    joystick.AbsolutePosition.Y,
+                    joystick.AbsolutePosition.X + joystick.AbsoluteSize.X,
+                    joystick.AbsolutePosition.Y + joystick.AbsoluteSize.Y
                 )
                 
-                if joystickBounds:ContainsPoint(touchPos) then
+                if joystickRect:ContainsPoint(touchPos) then
                     touchActive = true
                     touchStart = touchPos
                 end
@@ -190,13 +129,12 @@ function startControlLoop()
             end
             
             local currentPos = Vector2.new(input.Position.X, input.Position.Y)
-            local delta = currentPos - joystickPos
+            local delta = currentPos - joystickCenter
             local distance = delta.Magnitude
-            local maxDistance = 40
+            local maxDist = 50
             
-            -- Limit joystick movement
-            if distance > maxDistance then
-                delta = delta.Unit * maxDistance
+            if distance > maxDist then
+                delta = delta.Unit * maxDist
             end
             
             -- Update joystick visual
@@ -205,78 +143,62 @@ function startControlLoop()
                 0.5, delta.Y
             )
             
-            -- Convert to movement direction
-            local direction = Vector2.new(delta.X / maxDistance, delta.Y / maxDistance)
-            
-            -- Get camera orientation
+            -- Convert to movement
+            local direction = Vector2.new(delta.X / maxDist, delta.Y / maxDist)
             local camera = workspace.CurrentCamera
+            
+            local moveDir = Vector3.new(
+                direction.X * 3,
+                0,
+                -direction.Y * 3
+            )
+            
             local forward = camera.CFrame.LookVector * Vector3.new(1, 0, 1)
             local right = camera.CFrame.RightVector
             
-            -- Calculate movement vector
-            local moveVector = (right * direction.X + forward * -direction.Y) * flySpeed
-            
-            -- Apply velocity
-            if velocity then
-                velocity.Velocity = Vector3.new(moveVector.X, velocity.Velocity.Y, moveVector.Z)
-            end
+            velocity.Velocity = (right * moveDir.X + forward * moveDir.Z) * 40
         end)
         
         UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch then
                 touchActive = false
-                
-                -- Reset joystick
-                if joystick and joystick.Center then
-                    joystick.Center.Position = UDim2.new(0.5, -20, 0.5, -20)
-                end
-                
-                -- Stop horizontal movement
-                if velocity then
-                    velocity.Velocity = Vector3.new(0, velocity.Velocity.Y, 0)
-                end
+                joystick.Center.Position = UDim2.new(0.5, -25, 0.5, -25)
+                velocity.Velocity = Vector3.new(0, 0, 0)
             end
         end)
-        
-        -- Keyboard controls for testing
-        local upPressed = false
-        local downPressed = false
-        
-        UserInputService.InputBegan:Connect(function(input)
-            if input.KeyCode == Enum.KeyCode.Space then
-                upPressed = true
-            elseif input.KeyCode == Enum.KeyCode.LeftShift then
-                downPressed = true
-            end
-        end)
-        
-        UserInputService.InputEnded:Connect(function(input)
-            if input.KeyCode == Enum.KeyCode.Space then
-                upPressed = false
-            elseif input.KeyCode == Enum.KeyCode.LeftShift then
-                downPressed = false
-            end
-        end)
-        
-        -- Vertical movement loop
-        while flyEnabled and RunService.Heartbeat:Wait() do
-            if not velocity then break end
-            
-            local verticalSpeed = 0
-            
-            if upPressed then
-                verticalSpeed = flySpeed
-            elseif downPressed then
-                verticalSpeed = -flySpeed
-            end
-            
-            velocity.Velocity = Vector3.new(
-                velocity.Velocity.X,
-                verticalSpeed,
-                velocity.Velocity.Z
-            )
-        end
     end)()
+    
+    print("Fly: Enabled for mobile")
+    return true
+end
+
+function module.disable()
+    flyEnabled = false
+    
+    if velocity then
+        velocity:Destroy()
+        velocity = nil
+    end
+    
+    if bodyGyro then
+        bodyGyro:Destroy()
+        bodyGyro = nil
+    end
+    
+    if joystick then
+        joystick:Destroy()
+        joystick = nil
+    end
+    
+    if humanoid then
+        humanoid.PlatformStand = false
+    end
+    
+    print("Fly: Disabled")
+end
+
+function module.isEnabled()
+    return flyEnabled
 end
 
 return module
