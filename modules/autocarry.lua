@@ -1,175 +1,156 @@
 -- Auto Carry Module
+-- Automatically carries all players in the game
 
 local module = {}
 
 -- Services
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
 -- Player
-local player = Players.LocalPlayer
-local character = player.Character
-local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+local plr = Players.LocalPlayer
 
 -- Module state
 local active = false
-local carrying = false
+local carryConnections = {}
 local carriedPlayers = {}
-local weldConnections = {}
 
--- Create weld between two parts
+local function waitForCharacter(player)
+    local character = player.Character
+    if not character then
+        character = player.CharacterAdded:Wait()
+    end
+    repeat task.wait() until character:FindFirstChild("HumanoidRootPart")
+    return character
+end
+
 local function createWeld(part1, part2)
     local weld = Instance.new("Weld")
     weld.Part0 = part1
     weld.Part1 = part2
     weld.C0 = CFrame.new()
-    weld.C1 = part1.CFrame:inverse() * part2.CFrame
+    weld.C1 = part1.CFrame:toObjectSpace(part2.CFrame)
     weld.Parent = part1
-    
     return weld
 end
 
--- Carry a player
 local function carryPlayer(targetPlayer)
-    if not active or not carrying then return end
-    if targetPlayer == player then return end
-    
-    local targetCharacter = targetPlayer.Character
-    if not targetCharacter then return end
-    
-    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then return end
-    
-    -- Check if already carrying
-    if carriedPlayers[targetPlayer] then return end
-    
-    -- Create weld to carry player
-    local weld = createWeld(humanoidRootPart, targetRoot)
-    carriedPlayers[targetPlayer] = {
-        weld = weld,
-        character = targetCharacter
-    }
-    
-    print("Carrying player:", targetPlayer.Name)
-end
-
--- Stop carrying a player
-local function stopCarryPlayer(targetPlayer)
-    local carryData = carriedPlayers[targetPlayer]
-    if not carryData then return end
-    
-    -- Remove weld
-    if carryData.weld and carryData.weld.Parent then
-        carryData.weld:Destroy()
+    if targetPlayer == plr or carriedPlayers[targetPlayer] then
+        return
     end
     
-    carriedPlayers[targetPlayer] = nil
-    print("Stopped carrying player:", targetPlayer.Name)
-end
-
--- Stop carrying all players
-local function stopCarryAll()
-    for targetPlayer, carryData in pairs(carriedPlayers) do
-        if carryData.weld and carryData.weld.Parent then
-            carryData.weld:Destroy()
-        end
-    end
+    carriedPlayers[targetPlayer] = true
     
-    carriedPlayers = {}
-    print("Stopped carrying all players")
-end
-
--- Monitor players joining
-local function monitorPlayers()
-    -- Carry existing players
-    for _, otherPlayer in ipairs(Players:GetPlayers()) do
-        if active and carrying then
-            carryPlayer(otherPlayer)
-        end
-    end
-    
-    -- Monitor new players
-    local playerAddedConnection = Players.PlayerAdded:Connect(function(newPlayer)
-        if active and carrying then
-            task.wait(2) -- Wait for character to load
-            carryPlayer(newPlayer)
-        end
-    end)
-    
-    -- Monitor players leaving
-    local playerRemovingConnection = Players.PlayerRemoving:Connect(function(leavingPlayer)
-        stopCarryPlayer(leavingPlayer)
-    end)
-    
-    -- Store connections
-    weldConnections["playerAdded"] = playerAddedConnection
-    weldConnections["playerRemoving"] = playerRemovingConnection
-end
-
--- Character added handler
-local function onCharacterAdded(newCharacter)
-    character = newCharacter
-    humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-    
-    if active and carrying then
-        -- Stop all carrying and restart
-        stopCarryAll()
-        task.wait(1)
+    coroutine.wrap(function()
+        local myCharacter = waitForCharacter(plr)
+        local myHRP = myCharacter:FindFirstChild("HumanoidRootPart")
         
-        if active and carrying then
-            -- Re-carry all players
-            for _, otherPlayer in ipairs(Players:GetPlayers()) do
-                if otherPlayer ~= player then
-                    carryPlayer(otherPlayer)
+        local theirCharacter = waitForCharacter(targetPlayer)
+        local theirHRP = theirCharacter:FindFirstChild("HumanoidRootPart")
+        
+        if not myHRP or not theirHRP then
+            carriedPlayers[targetPlayer] = nil
+            return
+        end
+        
+        -- Create weld to carry
+        local weld = createWeld(myHRP, theirHRP)
+        
+        -- Update position periodically (weld might break)
+        local updateConnection
+        updateConnection = RunService.Heartbeat:Connect(function()
+            if not active or not myHRP or not theirHRP or not myHRP.Parent or not theirHRP.Parent then
+                if updateConnection then
+                    updateConnection:Disconnect()
+                end
+                carriedPlayers[targetPlayer] = nil
+                return
+            end
+            
+            -- Update weld if it exists, otherwise recreate
+            if not weld or not weld.Parent then
+                weld = createWeld(myHRP, theirHRP)
+            end
+            
+            -- Keep their character upright
+            theirHRP.CFrame = CFrame.new(theirHRP.Position) * CFrame.Angles(0, myHRP.CFrame:toEulerAnglesXYZ())
+        end)
+        
+        table.insert(carryConnections, updateConnection)
+        
+        -- Handle target player leaving
+        local playerLeftConnection
+        playerLeftConnection = targetPlayer.CharacterRemoving:Connect(function()
+            if updateConnection then
+                updateConnection:Disconnect()
+            end
+            if weld then
+                weld:Destroy()
+            end
+            carriedPlayers[targetPlayer] = nil
+        end)
+        
+        table.insert(carryConnections, playerLeftConnection)
+    end)()
+end
+
+local function startCarryingAll()
+    -- Carry existing players
+    for _, player in ipairs(Players:GetPlayers()) do
+        carryPlayer(player)
+    end
+    
+    -- Carry new players that join
+    local playerAddedConnection
+    playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+        task.wait(2) -- Wait for player to load
+        if active then
+            carryPlayer(player)
+        end
+    end)
+    
+    table.insert(carryConnections, playerAddedConnection)
+end
+
+local function stopCarryingAll()
+    carriedPlayers = {}
+    
+    for _, conn in ipairs(carryConnections) do
+        conn:Disconnect()
+    end
+    carryConnections = {}
+    
+    -- Clean up any remaining welds
+    local myCharacter = plr.Character
+    if myCharacter then
+        local myHRP = myCharacter:FindFirstChild("HumanoidRootPart")
+        if myHRP then
+            for _, child in ipairs(myHRP:GetChildren()) do
+                if child:IsA("Weld") then
+                    child:Destroy()
                 end
             end
         end
     end
 end
 
--- Module functions
-function module.activate()
+function module.start()
     if active then return end
     
     active = true
-    carrying = true
-    print("Auto Carry activated")
+    startCarryingAll()
     
-    -- Set up character monitoring
-    player.CharacterAdded:Connect(onCharacterAdded)
-    
-    -- Start monitoring players
-    monitorPlayers()
-    
-    -- Carry all current players
-    for _, otherPlayer in ipairs(Players:GetPlayers()) do
-        if otherPlayer ~= player then
-            carryPlayer(otherPlayer)
+    return {
+        stop = function()
+            active = false
+            stopCarryingAll()
         end
-    end
+    }
 end
 
-function module.deactivate()
-    if not active then return end
-    
+function module.stop(instance)
     active = false
-    carrying = false
-    
-    -- Stop carrying all players
-    stopCarryAll()
-    
-    -- Disconnect connections
-    for _, connection in pairs(weldConnections) do
-        if connection then
-            connection:Disconnect()
-        end
-    end
-    
-    weldConnections = {}
-    
-    print("Auto Carry deactivated")
+    stopCarryingAll()
 end
 
--- Return module
 return module

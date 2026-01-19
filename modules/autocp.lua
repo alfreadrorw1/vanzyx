@@ -1,211 +1,231 @@
--- Auto Complete CP Module
+-- Auto Complete Checkpoints Module
+-- Handles automatic checkpoint completion with sorting and safe teleportation
 
 local module = {}
 
 -- Services
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 -- Player
-local player = Players.LocalPlayer
-local character = player.Character
-local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-local humanoid = character and character:FindFirstChild("Humanoid")
+local plr = Players.LocalPlayer
 
 -- Module state
 local active = false
-local checkpoints = {}
-local currentCheckpointIndex = 1
-local teleporting = false
+local currentConnection = nil
 
--- Find all checkpoints in the game
-local function findCheckpoints()
-    local foundCheckpoints = {}
+-- Utility functions
+local function waitForCharacter()
+    local character = plr.Character
+    if not character then
+        character = plr.CharacterAdded:Wait()
+    end
+    repeat task.wait() until character:FindFirstChild("HumanoidRootPart")
+    return character
+end
+
+local function safeTeleport(hrp, position)
+    if not hrp or not hrp.Parent then return false end
     
-    -- Search for parts named "Checkpoint"
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
+    local humanoid = hrp.Parent:FindFirstChild("Humanoid")
+    local originalCollision = hrp.CanCollide
+    local originalTransparency = hrp.Transparency
+    
+    -- Disable collisions and make invisible during teleport
+    hrp.CanCollide = false
+    hrp.Transparency = 1
+    
+    -- Store original humanoid properties
+    local originalWalkSpeed, originalJumpPower
+    if humanoid then
+        originalWalkSpeed = humanoid.WalkSpeed
+        originalJumpPower = humanoid.JumpPower
+        humanoid.WalkSpeed = 0
+        humanoid.JumpPower = 0
+    end
+    
+    -- Teleport with CFrame to preserve orientation
+    hrp.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
+    
+    -- Wait for physics
+    RunService.Heartbeat:Wait()
+    RunService.Heartbeat:Wait()
+    
+    -- Restore properties
+    hrp.CanCollide = originalCollision
+    hrp.Transparency = originalTransparency
+    
+    if humanoid then
+        humanoid.WalkSpeed = originalWalkSpeed or 16
+        humanoid.JumpPower = originalJumpPower or 50
+    end
+    
+    return true
+end
+
+local function extractNumber(str)
+    local num = str:match("%d+")
+    return num and tonumber(num) or 0
+end
+
+local function getCheckpoints()
+    local checkpoints = {}
+    
+    -- Search for checkpoints in workspace
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("UnionOperation") then
             local name = obj.Name:lower()
-            if name:find("checkpoint") or name:find("cp") then
-                table.insert(foundCheckpoints, {
-                    part = obj,
-                    position = obj.Position,
-                    name = obj.Name
-                })
+            if name:find("checkpoint") or name:find("cp") or name:find("flag") or name:find("point") then
+                -- Check if it's in a checkpoint folder
+                local parent = obj.Parent
+                if parent and (parent.Name:lower():find("checkpoint") or parent.Name:lower():find("cp")) then
+                    table.insert(checkpoints, {
+                        Part = obj,
+                        Position = obj.Position,
+                        Number = extractNumber(parent.Name) * 1000 + extractNumber(obj.Name)
+                    })
+                else
+                    table.insert(checkpoints, {
+                        Part = obj,
+                        Position = obj.Position,
+                        Number = extractNumber(obj.Name)
+                    })
+                end
             end
         end
     end
     
-    -- Search in "Checkpoints" folder
-    local checkpointsFolder = Workspace:FindFirstChild("Checkpoints")
-    if checkpointsFolder then
-        for _, obj in ipairs(checkpointsFolder:GetDescendants()) do
-            if obj:IsA("BasePart") then
-                table.insert(foundCheckpoints, {
-                    part = obj,
-                    position = obj.Position,
-                    name = obj.Name
+    -- Also check for checkpoint models
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("Model") and (obj.Name:lower():find("checkpoint") or obj.Name:lower():find("cp")) then
+            local primary = obj:FindFirstChild("PrimaryPart") or obj:FindFirstChildWhichIsA("BasePart")
+            if primary then
+                table.insert(checkpoints, {
+                    Part = primary,
+                    Position = primary.Position,
+                    Number = extractNumber(obj.Name) * 1000
                 })
             end
         end
     end
     
     -- Sort checkpoints
-    table.sort(foundCheckpoints, function(a, b)
-        -- Try to extract numbers from names
-        local numA = tonumber(a.name:match("%d+"))
-        local numB = tonumber(b.name:match("%d+"))
-        
-        if numA and numB then
-            return numA < numB
-        elseif numA then
-            return true
-        elseif numB then
-            return false
+    table.sort(checkpoints, function(a, b)
+        if a.Number ~= b.Number and a.Number > 0 and b.Number > 0 then
+            return a.Number < b.Number
         else
-            -- Sort by Z position if no numbers
-            return a.position.Z < b.position.Z
+            -- Sort by Z position (assuming forward is positive Z)
+            return a.Position.Z < b.Position.Z
         end
     end)
     
-    return foundCheckpoints
-end
-
--- Safe teleport function
-local function safeTeleportTo(position)
-    if not character or not humanoidRootPart then
-        return false
-    end
+    -- Remove duplicates (checkpoints too close to each other)
+    local filtered = {}
+    local minDistance = 10
     
-    teleporting = true
-    
-    -- Disable humanoid movement during teleport
-    if humanoid then
-        humanoid.PlatformStand = true
-    end
-    
-    -- Store original properties
-    local originalTransparency = humanoidRootPart.Transparency
-    local originalCanCollide = humanoidRootPart.CanCollide
-    
-    -- Make character non-collidable
-    humanoidRootPart.Transparency = 1
-    humanoidRootPart.CanCollide = false
-    
-    -- Teleport
-    humanoidRootPart.CFrame = CFrame.new(position)
-    
-    -- Wait for teleport to complete
-    RunService.Heartbeat:Wait()
-    task.wait(0.1)
-    
-    -- Restore properties
-    humanoidRootPart.Transparency = originalTransparency
-    humanoidRootPart.CanCollide = originalCanCollide
-    
-    if humanoid then
-        humanoid.PlatformStand = false
-    end
-    
-    teleporting = false
-    return true
-end
-
--- Check if at summit
-local function isAtSummit(checkpoint)
-    local name = checkpoint.name:lower()
-    return name:find("summit") or name:find("finish") or name:find("end")
-end
-
--- Main CP completion loop
-local function completeCheckpoints()
-    if not active or not character or not humanoidRootPart then
-        return
-    end
-    
-    -- Find checkpoints
-    checkpoints = findCheckpoints()
-    
-    if #checkpoints == 0 then
-        warn("No checkpoints found!")
-        return
-    end
-    
-    for i, checkpoint in ipairs(checkpoints) do
-        if not active then break end
-        
-        currentCheckpointIndex = i
-        
-        -- Check if we're already at this checkpoint
-        local distance = (humanoidRootPart.Position - checkpoint.position).Magnitude
-        if distance > 10 then
-            -- Teleport to checkpoint
-            local success = safeTeleportTo(checkpoint.position + Vector3.new(0, 5, 0))
-            
-            if not success then
-                warn("Failed to teleport to checkpoint", checkpoint.name)
+    for i, cp in ipairs(checkpoints) do
+        local tooClose = false
+        for j, other in ipairs(filtered) do
+            if (cp.Position - other.Position).Magnitude < minDistance then
+                tooClose = true
                 break
             end
-            
-            -- Wait before next checkpoint
-            task.wait(0.25 + math.random() * 0.05)
+        end
+        if not tooClose then
+            table.insert(filtered, cp)
+        end
+    end
+    
+    return filtered
+end
+
+-- Main function
+function module.start()
+    if active then return end
+    active = true
+    
+    local statusFunction = function(msg)
+        -- This would update the GUI status through the main module
+        print("[AutoCP]", msg)
+    end
+    
+    coroutine.wrap(function()
+        statusFunction("🔍 Finding checkpoints...")
+        
+        local character = waitForCharacter()
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then
+            statusFunction("❌ No HumanoidRootPart found")
+            return
         end
         
-        -- Check if we reached the summit
-        if isAtSummit(checkpoint) then
-            print("Reached summit! Stopping Auto CP.")
-            break
+        local checkpoints = getCheckpoints()
+        
+        if #checkpoints == 0 then
+            statusFunction("❌ No checkpoints found")
+            return
         end
-    end
-    
-    -- Deactivate after completion
-    if active then
-        module.deactivate()
-    end
-end
-
--- Character added handler
-local function onCharacterAdded(newCharacter)
-    character = newCharacter
-    humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-    humanoid = character:FindFirstChild("Humanoid")
-    
-    if active then
-        -- Restart CP completion with new character
-        task.wait(1)
-        if active then
-            completeCheckpoints()
+        
+        statusFunction("🎯 Found " .. #checkpoints .. " checkpoints")
+        
+        -- Create a loop that continues until stopped
+        while active do
+            for i, cp in ipairs(checkpoints) do
+                if not active then break end
+                
+                statusFunction("📍 CP " .. i .. "/" .. #checkpoints)
+                
+                -- Teleport to checkpoint
+                if safeTeleport(hrp, cp.Position) then
+                    -- Wait a bit to ensure checkpoint registers
+                    for _ = 1, 3 do
+                        if not active then break end
+                        RunService.Heartbeat:Wait()
+                    end
+                else
+                    statusFunction("⚠️ Failed to teleport to CP " .. i)
+                end
+                
+                -- Small delay between teleports
+                local delay = 0.2 + math.random() * 0.1
+                local elapsed = 0
+                while elapsed < delay and active do
+                    RunService.Heartbeat:Wait()
+                    elapsed = elapsed + RunService.Heartbeat:Wait()
+                end
+            end
+            
+            -- Check if we should stop (if no progress was made)
+            if active then
+                statusFunction("✅ All checkpoints completed")
+                
+                -- Wait a bit before restarting
+                task.wait(2)
+                
+                -- Refresh checkpoints in case new ones appeared
+                checkpoints = getCheckpoints()
+                if #checkpoints == 0 then
+                    statusFunction("🎉 Summit reached!")
+                    break
+                end
+            end
         end
+    end)()
+    
+    return {
+        stop = function()
+            active = false
+            statusFunction("⏹️ Stopped")
+        end
+    }
+end
+
+function module.stop(instance)
+    if instance and instance.stop then
+        instance.stop()
     end
-end
-
--- Module functions
-function module.activate()
-    if active then return end
-    
-    active = true
-    print("Auto Complete CP activated")
-    
-    -- Set up character monitoring
-    player.CharacterAdded:Connect(onCharacterAdded)
-    
-    -- Start CP completion
-    spawn(completeCheckpoints)
-end
-
-function module.deactivate()
-    if not active then return end
-    
     active = false
-    teleporting = false
-    print("Auto Complete CP deactivated")
-    
-    -- Restore character if teleporting
-    if character and humanoid then
-        humanoid.PlatformStand = false
-    end
 end
 
--- Return module
 return module

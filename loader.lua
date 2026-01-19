@@ -1,23 +1,16 @@
--- Simple loader that works
+-- Vanzyxxx Loader
+-- Minimal loader that fetches and executes the main script
+
+if _G.VanzyxxxLoaderExecuted then return end
+_G.VanzyxxxLoaderExecuted = true
+
+print("[Vanzyxxx] Loading...")
+
+-- Load main script
 local success, err = pcall(function()
-    -- Try to load from GitHub
-    local url = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/main.lua"
-    local scriptSource = game:HttpGet(url)
-    
-    if scriptSource then
-        loadstring(scriptSource)()
-        print("Vanzyxxx loaded from GitHub!")
-    else
-        error("Failed to get script from GitHub")
-    end
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/main.lua"))()
 end)
 
 if not success then
-    warn("GitHub load failed: " .. err)
-    
-    -- Fallback: Use direct script
-    print("Using fallback script...")
-    
-    -- Paste the ULTRA SIMPLE VERSION code here directly
-    -- (Copy everything from above starting from '-- Vanzyxxx Auto Script...')
+    warn("[Vanzyxxx] Failed to load:", err)
 end

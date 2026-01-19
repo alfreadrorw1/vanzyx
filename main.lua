@@ -1,25 +1,55 @@
--- Vanzyxxx Auto Script - UPGRADED VERSION
--- Tanpa module, tanpa GitHub dependencies
+-- Vanzyxxx Auto Script - Modular Version
+-- Main controller with GUI and module management
 
 if not game:GetService("RunService"):IsClient() then
     return
 end
 
--- Prevent duplicate
+-- Prevent duplicate execution
 if _G.VanzyxxxLoaded then return end
 _G.VanzyxxxLoaded = true
 
+-- Services
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Player
 local plr = Players.LocalPlayer
 
 -- Wait for player
 repeat task.wait() until plr
 repeat task.wait() until plr.PlayerGui
 
--- Create GUI
+-- Module loader
+local function loadModule(moduleName)
+    local url = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/modules/" .. moduleName
+    local success, moduleScript = pcall(function()
+        return loadstring(game:HttpGet(url))()
+    end)
+    
+    if success then
+        return moduleScript
+    else
+        warn("[Vanzyxxx] Failed to load module:", moduleName, moduleScript)
+        return nil
+    end
+end
+
+-- Initialize modules
+local Modules = {
+    AutoCP = loadModule("autocp.lua"),
+    Fly = loadModule("fly.lua"),
+    AutoCarry = loadModule("autocarry.lua")
+}
+
+-- GUI Creation
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "VanzyxxxGUI"
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.DisplayOrder = 999
+ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = plr.PlayerGui
 
 -- Remove duplicate GUI
@@ -29,652 +59,404 @@ for _, gui in ipairs(plr.PlayerGui:GetChildren()) do
     end
 end
 
-print("[Vanzyxxx] GUI Created!")
-
 -- ========================
--- FLOATING LOGO
+-- FLOATING DRAGGABLE LOGO
 -- ========================
 local logo = Instance.new("ImageButton")
 logo.Name = "Logo"
-logo.Size = UDim2.new(0, 70, 0, 70)
-logo.Position = UDim2.new(1, -80, 0, 20)
-logo.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-logo.Image = "rbxassetid://6764432408" -- Roblox default icon
+logo.Size = UDim2.new(0, 60, 0, 60)
+logo.Position = UDim2.new(1, -70, 0.5, -30)
+logo.AnchorPoint = Vector2.new(1, 0.5)
+logo.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+logo.BackgroundTransparency = 0.3
+logo.Image = "rbxassetid://6764432408"
 logo.Parent = ScreenGui
 
+-- Logo styling
 local logoCorner = Instance.new("UICorner")
-logoCorner.CornerRadius = UDim.new(0.3, 0)
+logoCorner.CornerRadius = UDim.new(0.2, 0)
 logoCorner.Parent = logo
 
 local logoStroke = Instance.new("UIStroke")
 logoStroke.Color = Color3.fromRGB(100, 150, 255)
-logoStroke.Thickness = 3
+logoStroke.Thickness = 2
 logoStroke.Parent = logo
 
+local logoShadow = Instance.new("ImageLabel")
+logoShadow.Name = "Shadow"
+logoShadow.Size = UDim2.new(1, 10, 1, 10)
+logoShadow.Position = UDim2.new(0.5, 0, 0.5, 0)
+logoShadow.AnchorPoint = Vector2.new(0.5, 0.5)
+logoShadow.BackgroundTransparency = 1
+logoShadow.Image = "rbxassetid://5554236805"
+logoShadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+logoShadow.ImageTransparency = 0.8
+logoShadow.ScaleType = Enum.ScaleType.Slice
+logoShadow.SliceCenter = Rect.new(10, 10, 118, 118)
+logoShadow.Parent = logo
+
+-- Logo drag functionality
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function updateLogoPosition()
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    logo.Position = UDim2.new(
+        math.clamp(logo.Position.X.Scale, 0, 1),
+        math.clamp(logo.Position.X.Offset, 0, viewportSize.X - logo.AbsoluteSize.X),
+        math.clamp(logo.Position.Y.Scale, 0, 1),
+        math.clamp(logo.Position.Y.Offset, 0, viewportSize.Y - logo.AbsoluteSize.Y)
+    )
+end
+
+logo.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = logo.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+logo.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input == dragInput) and dragStart then
+        local delta = input.Position - dragStart
+        local newPos = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+        logo.Position = newPos
+        updateLogoPosition()
+    end
+end)
+
+-- Handle screen resize
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateLogoPosition)
+updateLogoPosition()
+
 -- ========================
--- UPGRADED MENU DESIGN
+-- VERTICAL MENU
 -- ========================
 local menuVisible = false
 local menu = Instance.new("Frame")
 menu.Name = "Menu"
-menu.Size = UDim2.new(0, 350, 0, 380)
-menu.Position = UDim2.new(0.5, -175, 0.5, -190)
+menu.Size = UDim2.new(0, 280, 1, -20)
+menu.Position = UDim2.new(0, -280, 0, 10)
 menu.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+menu.BackgroundTransparency = 0.1
+menu.BorderSizePixel = 0
 menu.Visible = false
 menu.Parent = ScreenGui
 
 local menuCorner = Instance.new("UICorner")
-menuCorner.CornerRadius = UDim.new(0.08, 0)
+menuCorner.CornerRadius = UDim.new(0, 8)
 menuCorner.Parent = menu
 
--- Header with close button
+local menuGradient = Instance.new("UIGradient")
+menuGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(20, 20, 35)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 20))
+})
+menuGradient.Rotation = 90
+menuGradient.Parent = menu
+
+-- Menu header
 local header = Instance.new("Frame")
 header.Name = "Header"
-header.Size = UDim2.new(1, 0, 0, 45)
+header.Size = UDim2.new(1, 0, 0, 50)
 header.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+header.BorderSizePixel = 0
 header.Parent = menu
 
 local headerCorner = Instance.new("UICorner")
-headerCorner.CornerRadius = UDim.new(0.08, 0.08, 0, 0)
+headerCorner.CornerRadius = UDim.new(0, 8)
 headerCorner.Parent = header
 
--- Title
 local title = Instance.new("TextLabel")
-title.Text = "🚀 VANZYXXX ULTRA MENU"
-title.Size = UDim2.new(0.8, 0, 1, 0)
+title.Text = "🚀 VANZYXXX"
+title.Size = UDim2.new(1, -50, 1, 0)
 title.Position = UDim2.new(0, 15, 0, 0)
 title.BackgroundTransparency = 1
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
-title.TextSize = 18
+title.TextSize = 20
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = header
 
--- Close button (X)
-local closeBtn = Instance.new("TextButton")
+-- Close button
+local closeBtn = Instance.new("ImageButton")
 closeBtn.Name = "CloseButton"
-closeBtn.Text = "×"
-closeBtn.Size = UDim2.new(0, 35, 0, 35)
-closeBtn.Position = UDim2.new(1, -40, 0, 5)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 24
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0.5, -15)
+closeBtn.AnchorPoint = Vector2.new(1, 0.5)
+closeBtn.BackgroundTransparency = 1
+closeBtn.Image = "rbxassetid://6031091004"
+closeBtn.ImageColor3 = Color3.fromRGB(220, 80, 80)
 closeBtn.Parent = header
 
-local closeCorner = Instance.new("UICorner")
-closeCorner.CornerRadius = UDim.new(0.2, 0)
-closeCorner.Parent = closeBtn
+-- Status display
+local statusFrame = Instance.new("Frame")
+statusFrame.Name = "StatusFrame"
+statusFrame.Size = UDim2.new(1, -20, 0, 40)
+statusFrame.Position = UDim2.new(0, 10, 0, 60)
+statusFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+statusFrame.Parent = menu
 
--- Status bar
-local statusBar = Instance.new("Frame")
-statusBar.Name = "StatusBar"
-statusBar.Size = UDim2.new(1, -30, 0, 35)
-statusBar.Position = UDim2.new(0, 15, 0, 55)
-statusBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-statusBar.Parent = menu
+local statusCorner = Instance.new("UICorner")
+statusCorner.CornerRadius = UDim.new(0, 6)
+statusCorner.Parent = statusFrame
 
-local statusBarCorner = Instance.new("UICorner")
-statusBarCorner.CornerRadius = UDim.new(0.1, 0)
-statusBarCorner.Parent = statusBar
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "Status"
+statusLabel.Text = "✅ READY"
+statusLabel.Size = UDim2.new(1, 0, 1, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+statusLabel.Font = Enum.Font.GothamSemibold
+statusLabel.TextSize = 14
+statusLabel.Parent = statusFrame
 
-local status = Instance.new("TextLabel")
-status.Name = "Status"
-status.Text = "✅ READY"
-status.Size = UDim2.new(1, -20, 1, 0)
-status.Position = UDim2.new(0, 10, 0, 0)
-status.BackgroundTransparency = 1
-status.TextColor3 = Color3.fromRGB(100, 255, 100)
-status.Font = Enum.Font.Gotham
-status.TextSize = 14
-status.TextXAlignment = Enum.TextXAlignment.Left
-status.Parent = statusBar
+-- Toggles container
+local togglesFrame = Instance.new("ScrollingFrame")
+togglesFrame.Name = "Toggles"
+togglesFrame.Size = UDim2.new(1, -20, 1, -150)
+togglesFrame.Position = UDim2.new(0, 10, 0, 110)
+togglesFrame.BackgroundTransparency = 1
+togglesFrame.BorderSizePixel = 0
+togglesFrame.ScrollBarThickness = 3
+togglesFrame.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 150)
+togglesFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+togglesFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+togglesFrame.Parent = menu
 
--- Scroll container for features
-local scrollContainer = Instance.new("ScrollingFrame")
-scrollContainer.Name = "FeaturesContainer"
-scrollContainer.Size = UDim2.new(1, -30, 0, 250)
-scrollContainer.Position = UDim2.new(0, 15, 0, 100)
-scrollContainer.BackgroundTransparency = 1
-scrollContainer.BorderSizePixel = 0
-scrollContainer.ScrollBarThickness = 5
-scrollContainer.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 120)
-scrollContainer.Parent = menu
-
-local uiListLayout = Instance.new("UIListLayout")
-uiListLayout.Padding = UDim.new(0, 10)
-uiListLayout.Parent = scrollContainer
+local togglesLayout = Instance.new("UIListLayout")
+togglesLayout.Padding = UDim.new(0, 10)
+togglesLayout.Parent = togglesFrame
 
 -- ========================
--- FEATURE VARIABLES
+-- TOGGLE CREATION
 -- ========================
-local flyEnabled = false
-local flyMenuVisible = false
-local carryEnabled = false
-local autoCPRunning = false
+local ToggleStates = {
+    AutoCP = false,
+    Fly = false,
+    AutoCarry = false
+}
 
-local velocity
-local bodyGyro
+local ActiveModules = {}
 
--- ========================
--- FLY MENU (Small Rectangle)
--- ========================
-local flyMenu
-local flyMenuFrame
-
-local function createFlyMenu()
-    if flyMenu then flyMenu:Destroy() end
+local function createToggle(name, description, defaultColor, activeColor)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Name = name .. "Toggle"
+    toggleFrame.Size = UDim2.new(1, 0, 0, 50)
+    toggleFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 55)
+    toggleFrame.BackgroundTransparency = 0.1
+    toggleFrame.Parent = togglesFrame
     
-    flyMenu = Instance.new("ScreenGui")
-    flyMenu.Name = "FlyMenuGUI"
-    flyMenu.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    flyMenu.Parent = plr.PlayerGui
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 6)
+    toggleCorner.Parent = toggleFrame
     
-    flyMenuFrame = Instance.new("Frame")
-    flyMenuFrame.Name = "FlyMenu"
-    flyMenuFrame.Size = UDim2.new(0, 150, 0, 180)
-    flyMenuFrame.Position = UDim2.new(0, 20, 0.5, -90)
-    flyMenuFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
-    flyMenuFrame.Visible = false
-    flyMenuFrame.Parent = flyMenu
+    local toggleLabel = Instance.new("TextLabel")
+    toggleLabel.Text = name
+    toggleLabel.Size = UDim2.new(0.7, -10, 0.5, 0)
+    toggleLabel.Position = UDim2.new(0, 10, 0, 5)
+    toggleLabel.BackgroundTransparency = 1
+    toggleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleLabel.Font = Enum.Font.GothamBold
+    toggleLabel.TextSize = 16
+    toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    toggleLabel.Parent = toggleFrame
     
-    local flyMenuCorner = Instance.new("UICorner")
-    flyMenuCorner.CornerRadius = UDim.new(0.1, 0)
-    flyMenuCorner.Parent = flyMenuFrame
+    local descLabel = Instance.new("TextLabel")
+    descLabel.Text = description
+    descLabel.Size = UDim2.new(0.7, -10, 0.5, 0)
+    descLabel.Position = UDim2.new(0, 10, 0, 25)
+    descLabel.BackgroundTransparency = 1
+    descLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    descLabel.Font = Enum.Font.Gotham
+    descLabel.TextSize = 12
+    descLabel.TextXAlignment = Enum.TextXAlignment.Left
+    descLabel.Parent = toggleFrame
     
-    -- Fly title
-    local flyTitle = Instance.new("TextLabel")
-    flyTitle.Text = "✈️ FLY CONTROL"
-    flyTitle.Size = UDim2.new(1, 0, 0, 35)
-    flyTitle.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    flyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    flyTitle.Font = Enum.Font.GothamBold
-    flyTitle.TextSize = 14
-    flyTitle.Parent = flyMenuFrame
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Name = "ToggleButton"
+    toggleBtn.Text = "OFF"
+    toggleBtn.Size = UDim2.new(0.25, 0, 0.6, 0)
+    toggleBtn.Position = UDim2.new(0.75, -5, 0.2, 0)
+    toggleBtn.BackgroundColor3 = defaultColor
+    toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.TextSize = 14
+    toggleBtn.Parent = toggleFrame
     
-    -- Version selection
-    local v1Btn = Instance.new("TextButton")
-    v1Btn.Text = "V1 - Normal"
-    v1Btn.Size = UDim2.new(1, -20, 0, 30)
-    v1Btn.Position = UDim2.new(0, 10, 0, 45)
-    v1Btn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
-    v1Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    v1Btn.Font = Enum.Font.Gotham
-    v1Btn.TextSize = 12
-    v1Btn.Parent = flyMenuFrame
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = toggleBtn
     
-    local v1Corner = Instance.new("UICorner")
-    v1Corner.CornerRadius = UDim.new(0.1, 0)
-    v1Corner.Parent = v1Btn
-    
-    local v2Btn = Instance.new("TextButton")
-    v2Btn.Text = "V2 - Advanced"
-    v2Btn.Size = UDim2.new(1, -20, 0, 30)
-    v2Btn.Position = UDim2.new(0, 10, 0, 85)
-    v2Btn.BackgroundColor3 = Color3.fromRGB(80, 160, 240)
-    v2Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    v2Btn.Font = Enum.Font.Gotham
-    v2Btn.TextSize = 12
-    v2Btn.Parent = flyMenuFrame
-    
-    local v2Corner = Instance.new("UICorner")
-    v2Corner.CornerRadius = UDim.new(0.1, 0)
-    v2Corner.Parent = v2Btn
-    
-    -- Close fly menu
-    local closeFlyBtn = Instance.new("TextButton")
-    closeFlyBtn.Text = "❌ CLOSE"
-    closeFlyBtn.Size = UDim2.new(1, -20, 0, 25)
-    closeFlyBtn.Position = UDim2.new(0, 10, 0, 145)
-    closeFlyBtn.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
-    closeFlyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeFlyBtn.Font = Enum.Font.Gotham
-    closeFlyBtn.TextSize = 11
-    closeFlyBtn.Parent = flyMenuFrame
-    
-    local closeFlyCorner = Instance.new("UICorner")
-    closeFlyCorner.CornerRadius = UDim.new(0.1, 0)
-    closeFlyCorner.Parent = closeFlyBtn
-    
-    -- Button functions
-    v1Btn.MouseButton1Click:Connect(function()
-        enableFly("v1")
-    end)
-    
-    v2Btn.MouseButton1Click:Connect(function()
-        enableFly("v2")
-    end)
-    
-    closeFlyBtn.MouseButton1Click:Connect(function()
-        toggleFlyMenu()
-    end)
-end
-
--- ========================
--- CARRY MENU
--- ========================
-local carryMenu
-
-local function createCarryMenu()
-    if carryMenu then carryMenu:Destroy() end
-    
-    -- Remove fly menu if exists
-    if flyMenu then 
-        flyMenu:Destroy()
-        flyMenu = nil
-    end
-    
-    carryMenu = Instance.new("ScreenGui")
-    carryMenu.Name = "CarryMenuGUI"
-    carryMenu.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    carryMenu.Parent = plr.PlayerGui
-    
-    local carryFrame = Instance.new("Frame")
-    carryFrame.Name = "CarryMenu"
-    carryFrame.Size = UDim2.new(0, 150, 0, 120)
-    carryFrame.Position = UDim2.new(0, 20, 0.5, -60)
-    carryFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
-    carryFrame.Visible = true
-    carryFrame.Parent = carryMenu
-    
-    local carryCorner = Instance.new("UICorner")
-    carryCorner.CornerRadius = UDim.new(0.1, 0)
-    carryCorner.Parent = carryFrame
-    
-    -- Carry title
-    local carryTitle = Instance.new("TextLabel")
-    carryTitle.Text = "👥 CARRY SYSTEM"
-    carryTitle.Size = UDim2.new(1, 0, 0, 30)
-    carryTitle.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    carryTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    carryTitle.Font = Enum.Font.GothamBold
-    carryTitle.TextSize = 14
-    carryTitle.Parent = carryFrame
-    
-    -- On button
-    local carryOnBtn = Instance.new("TextButton")
-    carryOnBtn.Text = "✅ ON - Carry All"
-    carryOnBtn.Size = UDim2.new(1, -20, 0, 30)
-    carryOnBtn.Position = UDim2.new(0, 10, 0, 40)
-    carryOnBtn.BackgroundColor3 = Color3.fromRGB(50, 180, 80)
-    carryOnBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    carryOnBtn.Font = Enum.Font.Gotham
-    carryOnBtn.TextSize = 12
-    carryOnBtn.Parent = carryFrame
-    
-    local carryOnCorner = Instance.new("UICorner")
-    carryOnCorner.CornerRadius = UDim.new(0.1, 0)
-    carryOnCorner.Parent = carryOnBtn
-    
-    -- Off button
-    local carryOffBtn = Instance.new("TextButton")
-    carryOffBtn.Text = "❌ OFF"
-    carryOffBtn.Size = UDim2.new(1, -20, 0, 30)
-    carryOffBtn.Position = UDim2.new(0, 10, 0, 80)
-    carryOffBtn.BackgroundColor3 = Color3.fromRGB(220, 80, 80)
-    carryOffBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    carryOffBtn.Font = Enum.Font.Gotham
-    carryOffBtn.TextSize = 12
-    carryOffBtn.Parent = carryFrame
-    
-    local carryOffCorner = Instance.new("UICorner")
-    carryOffCorner.CornerRadius = UDim.new(0.1, 0)
-    carryOffCorner.Parent = carryOffBtn
-    
-    -- Button functions
-    carryOnBtn.MouseButton1Click:Connect(function()
-        enableCarry()
-    end)
-    
-    carryOffBtn.MouseButton1Click:Connect(function()
-        disableCarry()
-        if carryMenu then
-            carryMenu:Destroy()
-            carryMenu = nil
-        end
-    end)
-end
-
--- ========================
--- FLY SYSTEM
--- ========================
-local function enableFly(version)
-    if flyEnabled then disableFly() end
-    
-    local character = plr.Character
-    if not character then return end
-    
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    -- Clean old
-    if velocity then velocity:Destroy() end
-    if bodyGyro then bodyGyro:Destroy() end
-    
-    -- Create new
-    velocity = Instance.new("BodyVelocity")
-    velocity.Velocity = Vector3.new(0, 0, 0)
-    
-    if version == "v2" then
-        velocity.MaxForce = Vector3.new(40000, 40000, 40000)
-    else
-        velocity.MaxForce = Vector3.new(10000, 10000, 10000)
-    end
-    
-    velocity.Parent = hrp
-    
-    bodyGyro = Instance.new("BodyGyro")
-    bodyGyro.MaxTorque = Vector3.new(10000, 10000, 10000)
-    bodyGyro.CFrame = hrp.CFrame
-    bodyGyro.P = 1000
-    bodyGyro.Parent = hrp
-    
-    flyEnabled = true
-    status.Text = "✈️ FLY " .. version:upper() .. " ENABLED"
-    print("[Vanzyxxx] Fly " .. version .. " enabled")
-    
-    -- Movement control
-    local moveSpeed = version == "v2" and 120 or 80
-    
-    local flyConnection
-    flyConnection = game:GetService("RunService").RenderStepped:Connect(function()
-        if not flyEnabled then
-            flyConnection:Disconnect()
-            return
-        end
+    -- Toggle functionality
+    toggleBtn.MouseButton1Click:Connect(function()
+        ToggleStates[name] = not ToggleStates[name]
         
-        local moveVector = Vector3.new(0, 0, 0)
-        
-        -- W, A, S, D controls
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
-            moveVector = moveVector + (hrp.CFrame.LookVector * moveSpeed)
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
-            moveVector = moveVector - (hrp.CFrame.LookVector * moveSpeed)
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
-            moveVector = moveVector + (hrp.CFrame.RightVector * moveSpeed)
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
-            moveVector = moveVector - (hrp.CFrame.RightVector * moveSpeed)
-        end
-        
-        -- Space and Shift for up/down
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.Space) then
-            moveVector = moveVector + Vector3.new(0, moveSpeed, 0)
-        end
-        if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.LeftShift) then
-            moveVector = moveVector - Vector3.new(0, moveSpeed, 0)
-        end
-        
-        if velocity then
-            velocity.Velocity = moveVector
-        end
-    end)
-    
-    -- Hide fly menu
-    if flyMenuFrame then
-        flyMenuFrame.Visible = false
-    end
-end
-
-local function disableFly()
-    if velocity then velocity:Destroy() velocity = nil end
-    if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
-    flyEnabled = false
-    status.Text = "✅ READY"
-    print("[Vanzyxxx] Fly disabled")
-end
-
--- ========================
--- CARRY SYSTEM
--- ========================
-local function enableCarry()
-    if carryEnabled then return end
-    
-    status.Text = "👥 CARRYING ALL PLAYERS..."
-    
-    local character = plr.Character
-    if not character then return end
-    
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    
-    -- Teleport all players to me
-    for _, otherPlayer in ipairs(Players:GetPlayers()) do
-        if otherPlayer ~= plr then
-            local otherChar = otherPlayer.Character
-            if otherChar then
-                local otherHrp = otherChar:FindFirstChild("HumanoidRootPart")
-                if otherHrp then
-                    -- Create weld to carry
-                    local weld = Instance.new("Weld")
-                    weld.Part0 = hrp
-                    weld.Part1 = otherHrp
-                    weld.C0 = CFrame.new(0, 0, -5)
-                    weld.Parent = hrp
-                    
-                    print("[Vanzyxxx] Carrying: " .. otherPlayer.Name)
-                end
-            end
-        end
-    end
-    
-    carryEnabled = true
-    status.Text = "✅ ALL PLAYERS CARRIED"
-    print("[Vanzyxxx] Carry enabled")
-end
-
-local function disableCarry()
-    -- Remove all welds
-    local character = plr.Character
-    if character then
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            for _, child in ipairs(hrp:GetChildren()) do
-                if child:IsA("Weld") then
-                    child:Destroy()
-                end
-            end
-        end
-    end
-    
-    carryEnabled = false
-    status.Text = "✅ CARRY DISABLED"
-    print("[Vanzyxxx] Carry disabled")
-end
-
--- ========================
--- AUTO CHECKPOINT SYSTEM
--- ========================
-local function findAndTeleportToCheckpoints()
-    if autoCPRunning then return end
-    autoCPRunning = true
-    
-    status.Text = "🔍 FINDING CHECKPOINTS..."
-    
-    -- Find all checkpoints
-    local checkpoints = {}
-    local checkpointNumbers = {}
-    
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            local lowerName = obj.Name:lower()
-            if lowerName:find("checkpoint") or lowerName:find("cp") then
-                -- Extract number from name
-                local num = tonumber(lowerName:match("%d+"))
-                if num then
-                    checkpointNumbers[num] = obj
-                else
-                    table.insert(checkpoints, obj)
-                end
-            end
-        end
-    end
-    
-    -- Sort numbered checkpoints
-    local sortedCheckpoints = {}
-    for i = 1, #checkpointNumbers do
-        if checkpointNumbers[i] then
-            table.insert(sortedCheckpoints, checkpointNumbers[i])
-        end
-    end
-    
-    -- Add unnumbered checkpoints
-    for _, cp in ipairs(checkpoints) do
-        table.insert(sortedCheckpoints, cp)
-    end
-    
-    if #sortedCheckpoints == 0 then
-        status.Text = "❌ NO CHECKPOINTS FOUND"
-        autoCPRunning = false
-        return
-    end
-    
-    status.Text = "🚀 TELEPORTING TO " .. #sortedCheckpoints .. " CHECKPOINTS"
-    
-    -- Teleport to each checkpoint
-    for i, cp in ipairs(sortedCheckpoints) do
-        if not autoCPRunning then break end
-        
-        local character = plr.Character
-        if not character then break end
-        
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if not hrp then break end
-        
-        status.Text = "📍 CP " .. i .. "/" .. #sortedCheckpoints
-        
-        -- Teleport
-        hrp.CFrame = CFrame.new(cp.Position + Vector3.new(0, 5, 0))
-        
-        -- If last checkpoint, wait and teleport to summit
-        if i == #sortedCheckpoints then
-            status.Text = "⏳ LAST CP - WAITING 3s..."
-            task.wait(3)
+        if ToggleStates[name] then
+            toggleBtn.Text = "ON"
+            toggleBtn.BackgroundColor3 = activeColor
             
-            -- Find summit
-            local summit
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") and (obj.Name:lower():find("summit") or obj.Name:lower():find("finish")) then
-                    summit = obj
-                    break
-                end
+            -- Start module
+            if Modules[name] then
+                ActiveModules[name] = Modules[name].start()
+                statusLabel.Text = "▶️ " .. name .. " ENABLED"
             end
+        else
+            toggleBtn.Text = "OFF"
+            toggleBtn.BackgroundColor3 = defaultColor
             
-            if summit then
-                status.Text = "🏔️ TELEPORTING TO SUMMIT"
-                hrp.CFrame = CFrame.new(summit.Position + Vector3.new(0, 5, 0))
-                task.wait(1)
+            -- Stop module
+            if ActiveModules[name] then
+                Modules[name].stop(ActiveModules[name])
+                ActiveModules[name] = nil
+                statusLabel.Text = "✅ READY"
             end
-            
-            status.Text = "🎉 FINISHED!"
-            break
         end
-        
-        task.wait(0.3)
-    end
+    end)
     
-    autoCPRunning = false
+    return toggleFrame
 end
 
+-- Create all toggles
+createToggle("AutoCP", "Auto complete checkpoints", Color3.fromRGB(80, 80, 120), Color3.fromRGB(50, 180, 80))
+createToggle("Fly", "Enable flight mode", Color3.fromRGB(80, 80, 120), Color3.fromRGB(50, 120, 220))
+createToggle("AutoCarry", "Carry all players", Color3.fromRGB(80, 80, 120), Color3.fromRGB(220, 120, 50))
+
 -- ========================
--- MENU FUNCTIONS
+-- MENU ANIMATION
 -- ========================
 local function toggleMenu()
     menuVisible = not menuVisible
-    menu.Visible = menuVisible
-    print("[Vanzyxxx] Menu toggled:", menuVisible)
-end
-
-local function toggleFlyMenu()
-    if not flyMenu then
-        createFlyMenu()
-    end
     
-    flyMenuVisible = not flyMenuVisible
-    flyMenuFrame.Visible = flyMenuVisible
-end
-
--- ========================
--- CREATE FEATURE BUTTONS
--- ========================
-local function createFeatureButton(text, color, callback)
-    local btn = Instance.new("TextButton")
-    btn.Text = text
-    btn.Size = UDim2.new(1, 0, 0, 40)
-    btn.BackgroundColor3 = color
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 14
-    btn.Parent = scrollContainer
-    
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0.08, 0)
-    btnCorner.Parent = btn
-    
-    btn.MouseButton1Click:Connect(callback)
-end
-
--- Add buttons to scroll container
-createFeatureButton("✈️ START FLY (V1/V2)", Color3.fromRGB(50, 120, 220), function()
-    if flyEnabled then
-        disableFly()
+    if menuVisible then
+        menu.Visible = true
+        local tween = TweenService:Create(menu, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0, 10, 0, 10)
+        })
+        tween:Play()
     else
-        toggleFlyMenu()
-    end
-end)
-
-createFeatureButton("👥 START CARRY ALL", Color3.fromRGB(180, 80, 180), function()
-    if carryEnabled then
-        disableCarry()
-        if carryMenu then
-            carryMenu:Destroy()
-            carryMenu = nil
-        end
-    else
-        createCarryMenu()
-    end
-end)
-
-createFeatureButton("▶️ AUTO ALL CHECKPOINTS", Color3.fromRGB(50, 180, 80), function()
-    if autoCPRunning then
-        autoCPRunning = false
-        status.Text = "⏹️ STOPPED"
-    else
-        findAndTeleportToCheckpoints()
-    end
-end)
-
-createFeatureButton("📍 TELEPORT TO SPAWN", Color3.fromRGB(220, 160, 50), function()
-    local spawn = workspace:FindFirstChild("SpawnLocation")
-    if spawn then
-        local character = plr.Character
-        if character then
-            local hrp = character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.CFrame = CFrame.new(spawn.Position + Vector3.new(0, 5, 0))
-                status.Text = "📍 TELEPORTED TO SPAWN"
+        local tween = TweenService:Create(menu, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Position = UDim2.new(0, -280, 0, 10)
+        })
+        tween:Play()
+        
+        tween.Completed:Connect(function()
+            if not menuVisible then
+                menu.Visible = false
+                
+                -- Stop all active modules when menu closes
+                for name, _ in pairs(ActiveModules) do
+                    if Modules[name] then
+                        Modules[name].stop(ActiveModules[name])
+                    end
+                    ToggleStates[name] = false
+                end
+                ActiveModules = {}
+                
+                -- Update toggle buttons
+                for _, toggle in ipairs(togglesFrame:GetChildren()) do
+                    if toggle:IsA("Frame") then
+                        local toggleBtn = toggle:FindFirstChild("ToggleButton")
+                        if toggleBtn then
+                            toggleBtn.Text = "OFF"
+                            toggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 120)
+                        end
+                    end
+                end
+                
+                statusLabel.Text = "✅ READY"
             end
-        end
+        end)
     end
-end)
+end
 
--- ========================
--- CONNECT EVENTS
--- ========================
+-- Connect logo and close button
 logo.MouseButton1Click:Connect(toggleMenu)
 closeBtn.MouseButton1Click:Connect(toggleMenu)
 
--- Auto update scroll container size
-uiListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    scrollContainer.CanvasSize = UDim2.new(0, 0, 0, uiListLayout.AbsoluteContentSize.Y)
-end)
+-- ========================
+-- RESPONSIVE DESIGN
+-- ========================
+local function updateLayout()
+    local viewportSize = workspace.CurrentCamera.ViewportSize
+    
+    if viewportSize.Y > viewportSize.X then
+        -- Portrait mode
+        menu.Size = UDim2.new(0.9, 0, 0.7, 0)
+        menu.Position = UDim2.new(0.05, -menu.AbsoluteSize.X, 0.15, 0)
+    else
+        -- Landscape mode
+        menu.Size = UDim2.new(0, 280, 0.9, 0)
+        menu.Position = UDim2.new(0, -280, 0.05, 0)
+    end
+    
+    logo.Size = UDim2.new(0, math.min(60, viewportSize.X * 0.1), 0, math.min(60, viewportSize.X * 0.1))
+end
+
+workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateLayout)
+updateLayout()
 
 -- ========================
--- INITIALIZATION
+-- AUTO-START MODULES
 -- ========================
 task.wait(1)
--- Menu will not auto-show anymore
 
-print("[Vanzyxxx] Script fully loaded! Click logo to open menu.")
+-- Auto-enable Fly on start
+if Modules.Fly then
+    ToggleStates.Fly = true
+    ActiveModules.Fly = Modules.Fly.start()
+    statusLabel.Text = "✈️ FLY ENABLED"
+    
+    -- Update toggle button
+    for _, toggle in ipairs(togglesFrame:GetChildren()) do
+        if toggle:IsA("Frame") and toggle.Name == "FlyToggle" then
+            local toggleBtn = toggle:FindFirstChild("ToggleButton")
+            if toggleBtn then
+                toggleBtn.Text = "ON"
+                toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 220)
+            end
+        end
+    end
+end
+
+-- Auto-show menu on start
+toggleMenu()
+
+-- Auto-hide menu after 8 seconds
+task.wait(8)
+if menuVisible then
+    toggleMenu()
+end
+
+-- Handle respawn
+plr.CharacterAdded:Connect(function(character)
+    task.wait(1) -- Wait for character to fully load
+    
+    -- Re-enable active modules
+    for name, _ in pairs(ActiveModules) do
+        if Modules[name] then
+            Modules[name].stop(ActiveModules[name])
+            ActiveModules[name] = Modules[name].start()
+        end
+    end
+end)
+
+print("[Vanzyxxx] System fully loaded!")
