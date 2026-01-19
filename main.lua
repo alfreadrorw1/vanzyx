@@ -1,154 +1,99 @@
--- [[ VANZYXXX PREMIUM V6 - MAIN ]]
--- UI STYLE: HORIZONTAL / DARK RED GOTHIC
--- COMPATIBLE: DELTA EXECUTOR (MOBILE)
-
+-- Vanzyxxx V5 - MODULAR VERSION
 local Players = game:GetService("Players")
 local plr = Players.LocalPlayer
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
--- Global Storage untuk Modul
-_G.VanzyModules = {}
-_G.CurrentTheme = Color3.fromRGB(180, 0, 0) -- Red Accent
+-- Folder Modules (Pastikan folder ini ada atau gunakan script loader)
+local Theme = {
+    Main = Color3.fromRGB(20, 20, 25),
+    Sidebar = Color3.fromRGB(25, 25, 30),
+    Accent = Color3.fromRGB(140, 0, 255),
+    Text = Color3.fromRGB(255, 255, 255)
+}
 
--- Create ScreenGui
 local ScreenGui = Instance.new("ScreenGui", plr.PlayerGui)
-ScreenGui.Name = "Vanzyxxx_Premium"
+ScreenGui.Name = "Vanzyxxx_Modular"
 ScreenGui.ResetOnSpawn = false
 
--- [[ UI MAIN CONTAINER ]]
+-- MAIN FRAME
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 500, 0, 260)
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -130)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-MainFrame.BorderSizePixel = 0
+MainFrame.Size = UDim2.new(0, 400, 0, 250)
+MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Theme.Main
 MainFrame.ClipsDescendants = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", MainFrame).Color = Theme.Accent
 
-local MainCorner = Instance.new("UICorner", MainFrame)
-MainCorner.CornerRadius = UDim.new(0, 8)
+-- TITLE (PINDAH KE ATAS TENGAH)
+local TitleLabel = Instance.new("TextLabel", MainFrame)
+TitleLabel.Size = UDim2.new(1, 0, 0, 40)
+TitleLabel.Position = UDim2.new(0, 0, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "VANZYXXX V5"
+TitleLabel.Font = Enum.Font.GothamBlack
+TitleLabel.TextSize = 18
+TitleLabel.TextColor3 = Theme.Accent
 
-local Stroke = Instance.new("UIStroke", MainFrame)
-Stroke.Color = _G.CurrentTheme
-Stroke.Thickness = 1.5
-
--- [[ TOP BAR ]]
-local TopBar = Instance.new("Frame", MainFrame)
-TopBar.Size = UDim2.new(1, 0, 0, 35)
-TopBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-
-local Title = Instance.new("TextLabel", TopBar)
-Title.Text = "  FREE SCRIPTS | Auto Walk"
-Title.Size = UDim2.new(0.5, 0, 1, 0)
-Title.TextColor3 = Color3.fromRGB(200, 200, 200)
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 12
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.BackgroundTransparency = 1
-
-local PremiumBadge = Instance.new("TextLabel", TopBar)
-PremiumBadge.Text = "PREMIUM SCRIPT"
-PremiumBadge.Size = UDim2.new(0, 100, 0, 20)
-PremiumBadge.Position = UDim2.new(0.6, 0, 0.5, -10)
-PremiumBadge.BackgroundColor3 = _G.CurrentTheme
-PremiumBadge.TextColor3 = Color3.new(1, 1, 1)
-PremiumBadge.Font = Enum.Font.GothamBlack
-PremiumBadge.TextSize = 10
-Instance.new("UICorner", PremiumBadge)
-
--- [[ SIDEBAR ]]
+-- SIDEBAR
 local Sidebar = Instance.new("Frame", MainFrame)
-Sidebar.Size = UDim2.new(0, 100, 1, -35)
-Sidebar.Position = UDim2.new(0, 0, 0, 35)
-Sidebar.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Sidebar.Size = UDim2.new(0, 110, 1, -40)
+Sidebar.Position = UDim2.new(0, 0, 0, 40)
+Sidebar.BackgroundColor3 = Theme.Sidebar
+Sidebar.BorderSizePixel = 0
 
 local SideLayout = Instance.new("UIListLayout", Sidebar)
-SideLayout.Padding = UDim.new(0, 2)
+SideLayout.Padding = UDim.new(0, 5)
+SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- [[ CONTENT AREA ]]
+-- CONTENT AREA
 local Content = Instance.new("Frame", MainFrame)
-Content.Size = UDim2.new(1, -110, 1, -45)
-Content.Position = UDim2.new(0, 105, 0, 40)
+Content.Size = UDim2.new(1, -120, 1, -50)
+Content.Position = UDim2.new(0, 115, 0, 45)
 Content.BackgroundTransparency = 1
 
 local Pages = {}
 
-local function CreatePage(name)
-    local Page = Instance.new("ScrollingFrame", Content)
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.BackgroundTransparency = 1
-    Page.Visible = false
-    Page.CanvasSize = UDim2.new(0,0,0,0)
-    Page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    Page.ScrollBarThickness = 2
-    Pages[name] = Page
-    return Page
-end
+-- Helper Function: Button dengan Icon (Padding Fix)
+_G.AddMenuBtn = function(name, iconOffset)
+    local btn = Instance.new("TextButton", Sidebar)
+    btn.Size = UDim2.new(0.9, 0, 0, 30)
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 10
+    btn.AutoButtonColor = true
+    Instance.new("UICorner", btn)
 
--- Default Home Page
-local Home = CreatePage("Home")
-Home.Visible = true
-local LogoBig = Instance.new("ImageLabel", Home)
-LogoBig.Size = UDim2.new(0, 100, 0, 100)
-LogoBig.Position = UDim2.new(0.5, -50, 0.3, -50)
-LogoBig.Image = "rbxassetid://6031070978" -- Gothic Logo Placeholder
-LogoBig.BackgroundTransparency = 1
-LogoBig.ImageColor3 = _G.CurrentTheme
+    local ico = Instance.new("ImageLabel", btn)
+    ico.Size = UDim2.new(0, 16, 0, 16)
+    ico.Position = UDim2.new(0, 8, 0.5, -8) -- Jarak 8 pixel dari kiri
+    ico.BackgroundTransparency = 1
+    ico.Image = "rbxassetid://3926305904"
+    ico.ImageRectOffset = iconOffset
+    ico.ImageRectSize = Vector2.new(36, 36)
 
-local WelcomeText = Instance.new("TextLabel", Home)
-WelcomeText.Text = "FREE SCRIPT\nVANZYXXX V6"
-WelcomeText.Size = UDim2.new(1, 0, 0, 50)
-WelcomeText.Position = UDim2.new(0, 0, 0.6, 0)
-WelcomeText.Font = Enum.Font.GothamBlack
-WelcomeText.TextColor3 = Color3.new(1,1,1)
-WelcomeText.TextSize = 18
-WelcomeText.BackgroundTransparency = 1
+    -- Text Padding (Agar text tidak menabrak icon)
+    btn.TextXAlignment = Enum.TextXAlignment.Left
+    local padding = Instance.new("UIPadding", btn)
+    padding.PaddingLeft = UDim.new(0, 30) -- Memberi ruang untuk icon
 
--- Sidebar Button Generator
-local function AddMenu(name, iconId)
-    local Btn = Instance.new("TextButton", Sidebar)
-    Btn.Size = UDim2.new(1, 0, 0, 35)
-    Btn.BackgroundTransparency = 1
-    Btn.Text = "  " .. name
-    Btn.Font = Enum.Font.GothamMedium
-    Btn.TextColor3 = Color3.fromRGB(150, 150, 150)
-    Btn.TextSize = 10
-    Btn.TextXAlignment = Enum.TextXAlignment.Left
-
-    Btn.MouseButton1Click:Connect(function()
+    btn.MouseButton1Click:Connect(function()
         for _, p in pairs(Pages) do p.Visible = false end
         if Pages[name] then Pages[name].Visible = true end
-        
-        -- Highlight Effect
-        for _, b in pairs(Sidebar:GetChildren()) do
-            if b:IsA("TextButton") then 
-                TweenService:Create(b, TweenInfo.new(0.3), {TextColor3 = Color3.fromRGB(150, 150, 150)}):Play()
-            end
-        end
-        TweenService:Create(Btn, TweenInfo.new(0.3), {TextColor3 = _G.CurrentTheme}):Play()
     end)
+    
+    local p = Instance.new("ScrollingFrame", Content)
+    p.Name = name
+    p.Size = UDim2.new(1, 0, 1, 0)
+    p.BackgroundTransparency = 1
+    p.Visible = false
+    p.CanvasSize = UDim2.new(0, 0, 0, 0)
+    p.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Pages[name] = p
+    return p
 end
 
--- Load Modul (Simulasi - Ganti URL GitHub Anda nanti)
-AddMenu("DASHBOARD", "")
-AddMenu("MAIN SERVER", "")
-AddMenu("AUTO WALK", "")
-AddMenu("TELEPORT", "")
-AddMenu("FLY", "")
-AddMenu("SETTINGS", "")
-
--- [[ DRAG SYSTEM ]]
-local dragging, dragInput, dragStart, startPos
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end
-end)
+-- Load Modules (Simulasi pemanggilan file lain)
+-- loadstring(game:HttpGet("link_ke_checkpoint.lua"))()
