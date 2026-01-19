@@ -1,4 +1,4 @@
--- Vanzyxxx Main Script
+-- Vanzyxxx Main Script (FIXED VERSION)
 -- LocalScript for client-side execution
 
 -- Anti-duplicate check
@@ -111,6 +111,7 @@ menuFrame.Position = UDim2.new(0, 20, 0.5, -200)
 menuFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 menuFrame.BackgroundTransparency = 0.1
 menuFrame.Visible = false
+menuFrame.ClipsDescendants = true
 
 local menuCorner = Instance.new("UICorner")
 menuCorner.CornerRadius = UDim.new(0, 12)
@@ -131,6 +132,7 @@ closeButton.Text = "X"
 closeButton.TextColor3 = Color3.fromRGB(255, 100, 100)
 closeButton.Font = Enum.Font.GothamBold
 closeButton.TextSize = 16
+closeButton.AutoButtonColor = true
 
 local closeCorner = Instance.new("UICorner")
 closeCorner.CornerRadius = UDim.new(0, 6)
@@ -170,11 +172,17 @@ togglesContainer.Position = UDim2.new(0, 20, 0, 100)
 togglesContainer.BackgroundTransparency = 1
 togglesContainer.ScrollBarThickness = 4
 togglesContainer.CanvasSize = UDim2.new(0, 0, 0, 160)
+togglesContainer.ScrollingDirection = Enum.ScrollingDirection.Y
 
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0, 10)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = togglesContainer
+
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, 5)
+padding.PaddingBottom = UDim.new(0, 5)
+padding.Parent = togglesContainer
 
 togglesContainer.Parent = menuFrame
 
@@ -188,6 +196,7 @@ stopAllButton.Text = "STOP ALL FEATURES"
 stopAllButton.TextColor3 = Color3.white
 stopAllButton.Font = Enum.Font.GothamBold
 stopAllButton.TextSize = 16
+stopAllButton.AutoButtonColor = true
 
 local stopAllCorner = Instance.new("UICorner")
 stopAllCorner.CornerRadius = UDim.new(0, 8)
@@ -202,12 +211,12 @@ local features = {
     {
         name = "Auto Complete CP",
         module = "autocp",
-        default = false
+        default = true
     },
     {
         name = "Fly",
         module = "fly",
-        default = false
+        default = true
     },
     {
         name = "Auto Carry",
@@ -248,6 +257,7 @@ for i, feature in ipairs(features) do
     toggleButton.TextColor3 = Color3.white
     toggleButton.Font = Enum.Font.GothamBold
     toggleButton.TextSize = 14
+    toggleButton.AutoButtonColor = true
     
     local toggleCorner = Instance.new("UICorner")
     toggleCorner.CornerRadius = UDim.new(0, 6)
@@ -290,14 +300,28 @@ for i, feature in ipairs(features) do
     end)
 end
 
--- Logo click to toggle menu
+-- Update toggles container canvas size
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    togglesContainer.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Logo click to toggle menu (FIXED)
 logoButton.MouseButton1Click:Connect(function()
     menuFrame.Visible = not menuFrame.Visible
+    print("Menu toggled. Visible:", menuFrame.Visible)
+    
+    if menuFrame.Visible then
+        -- Bring menu to front
+        menuFrame.ZIndex = 10
+        logoButton.ZIndex = 5
+    end
 end)
 
 -- Close button functionality
 closeButton.MouseButton1Click:Connect(function()
     menuFrame.Visible = false
+    print("Menu closed")
+    
     -- Stop all active features when menu closes
     for name, module in pairs(activeModules) do
         if module and module.deactivate then
@@ -432,3 +456,21 @@ game:GetService("Players").PlayerRemoving:Connect(function(leavingPlayer)
 end)
 
 statusLabel.Text = "Status: SYSTEM LOADED"
+
+-- Debug function to check if menu exists
+local function checkMenuExists()
+    print("=== MENU DEBUG INFO ===")
+    print("ScreenGui exists:", screenGui and screenGui.Parent ~= nil)
+    print("LogoButton exists:", logoButton and logoButton.Parent ~= nil)
+    print("MenuFrame exists:", menuFrame and menuFrame.Parent ~= nil)
+    print("MenuFrame Visible:", menuFrame.Visible)
+    print("MenuFrame Position:", menuFrame.Position)
+    print("MenuFrame Size:", menuFrame.Size)
+    print("=========================")
+end
+
+-- Uncomment for debugging
+-- checkMenuExists()
+
+print("Vanzyxxx Executor loaded successfully!")
+print("Click the floating logo to open the menu")
