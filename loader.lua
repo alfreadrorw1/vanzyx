@@ -1,5 +1,15 @@
--- Loader Script
--- Simple loader that fetches and executes the main script
+-- Vanzyxxx Loader
+-- Minimal loader untuk menghindari deteksi
 
--- Load the main script from GitHub RAW
-loadstring(game:HttpGet("https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/main.lua"))()
+if game:GetService("RunService"):IsClient() then
+    local success, err = pcall(function()
+        local mainScript = game:HttpGet("https://raw.githubusercontent.com/vanzyx/main/main.lua")
+        loadstring(mainScript)()
+    end)
+    
+    if not success then
+        warn("Loader Error: " .. err)
+    end
+else
+    warn("Loader must run on client!")
+end
