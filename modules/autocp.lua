@@ -1,219 +1,226 @@
--- Auto Complete Checkpoints Module (Fixed)
+-- Auto Checkpoint Completion Module
+-- Cari dan teleport ke semua checkpoint secara otomatis
+
 local module = {}
 
+-- Services
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
 
-local plr = Players.LocalPlayer
-local active = false
-local currentTask = nil
-
-local function waitForCharacter()
-    local character = plr.Character
-    if not character then
-        character = plr.CharacterAdded:Wait()
-    end
-    repeat task.wait(0.1) until character:FindFirstChild("HumanoidRootPart")
-    return character
-end
-
-local function safeTeleport(hrp, position)
-    if not hrp or not hrp.Parent then 
-        return false, "No HRP"
-    end
-    
-    local success, err = pcall(function()
-        local humanoid = hrp.Parent:FindFirstChild("Humanoid")
-        local originalCollision = hrp.CanCollide
-        
-        -- Disable collision
-        hrp.CanCollide = false
-        
-        -- Save original properties
-        local originalWalkSpeed, originalJumpPower
-        if humanoid then
-            originalWalkSpeed = humanoid.WalkSpeed
-            originalJumpPower = humanoid.JumpPower
-            humanoid.WalkSpeed = 0
-            humanoid.JumpPower = 0
-        end
-        
-        -- Teleport ke posisi
-        hrp.CFrame = CFrame.new(position + Vector3.new(0, 3, 0))
-        
-        -- Tunggu physics update
-        for _ = 1, 3 do
-            RunService.Heartbeat:Wait()
-        end
-        
-        -- Restore properties
-        hrp.CanCollide = originalCollision
-        if humanoid then
-            humanoid.WalkSpeed = originalWalkSpeed or 16
-            humanoid.JumpPower = originalJumpPower or 50
-        end
-        
-        return true
-    end)
-    
-    return success, err
-end
-
-local function findCheckpoints()
+-- Cari semua checkpoint di game
+function module.findCheckpoints()
     local checkpoints = {}
     
-    -- Cari semua BasePart dengan nama checkpoint
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
-            local name = obj.Name:lower()
-            if name:find("checkpoint") or name:find("cp") or 
-               name:find("flag") or name:find("point") or
-               name:find("stage") or name:find("level") or
-               name:find("finish") or name:find("end") then
-                
+    -- Method 1: Cari part bernama "Checkpoint"
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("checkpoint") then
+            table.insert(checkpoints, {
+                Part = obj,
+                Position = obj.Position,
+                Name = obj.Name
+            })
+        end
+    end
+    
+    -- Method 2: Cari folder "Checkpoints"
+    local checkpointFolder = Workspace:FindFirstChild("Checkpoints")
+    if checkpointFolder then
+        for _, obj in ipairs(checkpointFolder:GetDescendants()) do
+            if obj:IsA("BasePart") then
                 table.insert(checkpoints, {
                     Part = obj,
                     Position = obj.Position,
                     Name = obj.Name
                 })
             end
-        elseif obj:IsA("Model") then
-            local modelName = obj.Name:lower()
-            if modelName:find("checkpoint") or modelName:find("cp") then
-                local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                if primary then
-                    table.insert(checkpoints, {
-                        Part = primary,
-                        Position = primary.Position,
-                        Name = obj.Name
-                    })
+        end
+    end
+    
+    -- Method 3: Cari model dengan nama checkpoint
+    for _, model in ipairs(Workspace:GetChildren()) do
+        if model:IsA("Model") and model.Name:lower():find("checkpoint") then
+            local primary = model:FindFirstChildWhichIsA("BasePart")
+            if primary then
+                table.insert(checkpoints, {
+                    Part = primary,
+                    Position = primary.Position,
+                    Name = model.Name
+                })
+            end
+        end
+    end
+    
+    -- Urutkan checkpoint
+    table.sort(checkpoints, function(a, b)
+        -- Coba ekstrak angka dari nama
+        local numA = tonumber(string.match(a.Name, "%d+")) or 0
+        local numB = tonumber(string.match(b.Name, "%d+")) or 0
+        
+        if numA ~= numB then
+            return numA < numB
+        else
+            -- Jika tidak ada angka, urutkan berdasarkan posisi Z
+            return a.Position.Z < b.Position.Z
+        end
+    end)
+    
+    return checkpoints
+end
+
+-- Cari summit
+function module.findSummit()
+    -- Cari summit dengan berbagai nama umum
+    local summitNames = {
+        "summit", "finish", "end", "victory", "goal",
+        "final", "top", "peak", "win", "complete"
+    }
+    
+    -- Cari di workspace
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local lowerName = obj.Name:lower()
+            for _, name in ipairs(summitNames) do
+                if lowerName:find(name) then
+                    return {
+                        Part = obj,
+                        Position = obj.Position,
+                        Name = obj.Name,
+                        Type = "SUMMIT"
+                    }
                 end
             end
         end
     end
     
-    -- Sort berdasarkan Z position (game progression)
-    table.sort(checkpoints, function(a, b)
-        return a.Position.Z < b.Position.Z
-    end)
-    
-    -- Remove duplicates (posisi terlalu dekat)
-    local filtered = {}
-    local minDistance = 15
-    
-    for _, cp in ipairs(checkpoints) do
-        local isDuplicate = false
-        for _, existing in ipairs(filtered) do
-            if (cp.Position - existing.Position).Magnitude < minDistance then
-                isDuplicate = true
-                break
+    -- Cari model summit
+    for _, model in ipairs(Workspace:GetChildren()) do
+        if model:IsA("Model") then
+            local lowerName = model.Name:lower()
+            for _, name in ipairs(summitNames) do
+                if lowerName:find(name) then
+                    local primary = model:FindFirstChildWhichIsA("BasePart")
+                    if primary then
+                        return {
+                            Part = primary,
+                            Position = primary.Position,
+                            Name = model.Name,
+                            Type = "SUMMIT"
+                        }
+                    end
+                end
             end
         end
-        if not isDuplicate then
-            table.insert(filtered, cp)
-        end
     end
     
-    return filtered
+    return nil
 end
 
-function module.start()
-    if active then 
-        print("[AutoCP] Already running")
-        return nil 
+-- Teleport ke checkpoint dengan aman
+function module.teleportToCheckpoint(character, hrp, position, callback)
+    local teleportModule = require(script.Parent.autoteleport)
+    
+    if teleportModule then
+        teleportModule.safeTeleport(character, hrp, position, callback)
+    else
+        -- Fallback teleport sederhana
+        if character and hrp then
+            hrp.CFrame = CFrame.new(position)
+            task.wait(0.2)
+            if callback then callback(true) end
+        end
+    end
+end
+
+-- Proses utama complete semua checkpoint
+function module.start(character, hrp, humanoid, statusCallback)
+    if not character or not hrp then
+        if statusCallback then statusCallback("ERROR") end
+        return
     end
     
-    active = true
-    
-    local statusUpdate = function(msg)
-        print("[AutoCP]", msg)
-    end
-    
-    currentTask = task.spawn(function()
-        statusUpdate("🔍 Mencari checkpoint...")
+    coroutine.wrap(function()
+        -- Nonaktifkan humanoid movement sementara
+        if humanoid then
+            humanoid.PlatformStand = true
+        end
         
-        local character = waitForCharacter()
-        local hrp = character:FindFirstChild("HumanoidRootPart")
+        -- Cari semua checkpoint
+        local checkpoints = module.findCheckpoints()
         
-        if not hrp then
-            statusUpdate("❌ Tidak ada HumanoidRootPart")
-            active = false
+        if #checkpoints == 0 then
+            if statusCallback then statusCallback("NO CHECKPOINTS") end
             return
         end
         
-        while active do
-            local checkpoints = findCheckpoints()
+        if statusCallback then statusCallback("FOUND " .. #checkpoints .. " CP") end
+        
+        -- Teleport ke tiap checkpoint dengan delay
+        for i, cp in ipairs(checkpoints) do
+            if statusCallback then 
+                statusCallback("CP " .. i .. "/" .. #checkpoints .. " - " .. cp.Name)
+            end
             
-            if #checkpoints == 0 then
-                statusUpdate("❌ Tidak ada checkpoint ditemukan")
-                
-                -- Coba lagi dalam 2 detik
-                for _ = 1, 20 do
-                    if not active then break end
-                    RunService.Heartbeat:Wait()
+            -- Teleport ke checkpoint saat ini
+            module.teleportToCheckpoint(character, hrp, cp.Position, function(success)
+                if not success then
+                    warn("Failed to teleport to CP " .. i .. " - " .. cp.Name)
                 end
-            else
-                statusUpdate("🎯 Ditemukan " .. #checkpoints .. " checkpoint")
+            end)
+            
+            -- Delay antar checkpoint (1 detik)
+            task.wait(1)
+        end
+        
+        -- Tunggu di checkpoint terakhir selama 3 detik
+        if #checkpoints > 0 then
+            local lastCp = checkpoints[#checkpoints]
+            
+            if statusCallback then 
+                statusCallback("WAITING AT LAST CP FOR 3 SECONDS")
+            end
+            
+            module.teleportToCheckpoint(character, hrp, lastCp.Position)
+            
+            -- Tunggu 3 detik di checkpoint terakhir
+            for i = 1, 3 do
+                task.wait(1)
+                if statusCallback then 
+                    statusCallback("WAITING... " .. i .. "/3 SECONDS")
+                end
+            end
+            
+            -- Cari dan teleport ke summit
+            if statusCallback then statusCallback("SEARCHING FOR SUMMIT...") end
+            
+            local summit = module.findSummit()
+            
+            if summit then
+                if statusCallback then statusCallback("FOUND SUMMIT: " .. summit.Name) end
                 
-                for i, cp in ipairs(checkpoints) do
-                    if not active then break end
-                    
-                    statusUpdate("📍 Checkpoint " .. i .. "/" .. #checkpoints .. " - " .. cp.Name)
-                    
-                    -- Teleport
-                    local success, err = safeTeleport(hrp, cp.Position)
-                    
+                -- Teleport ke summit
+                module.teleportToCheckpoint(character, hrp, summit.Position, function(success)
                     if success then
-                        -- Tunggu sebentar
-                        for _ = 1, 5 do
-                            if not active then break end
-                            RunService.Heartbeat:Wait()
-                        end
+                        if statusCallback then statusCallback("TELEPORTED TO SUMMIT!") end
                     else
-                        statusUpdate("⚠️ Gagal teleport: " .. tostring(err))
+                        if statusCallback then statusCallback("FAILED TO TELEPORT TO SUMMIT") end
                     end
-                    
-                    -- Delay antar checkpoint
-                    local delay = 0.25
-                    local elapsed = 0
-                    while elapsed < delay and active do
-                        RunService.Heartbeat:Wait()
-                        elapsed = elapsed + RunService.Heartbeat:Wait()
-                    end
-                end
+                end)
                 
-                if active then
-                    statusUpdate("✅ Semua checkpoint selesai!")
-                    
-                    -- Tunggu sebelum scan ulang
-                    task.wait(3)
-                end
+                -- Tunggu di summit
+                task.wait(2)
+            else
+                if statusCallback then statusCallback("SUMMIT NOT FOUND") end
             end
-        end
-    end)
-    
-    return {
-        stop = function()
-            active = false
-            if currentTask then
-                task.cancel(currentTask)
-                currentTask = nil
+            
+            -- Re-enable humanoid movement
+            if humanoid then
+                humanoid.PlatformStand = false
             end
-            statusUpdate("⏹️ Berhenti")
+            
+            if statusCallback then statusCallback("FINISHED") end
         end
-    }
-end
-
-function module.stop(instance)
-    active = false
-    if currentTask then
-        task.cancel(currentTask)
-        currentTask = nil
-    end
-    if instance and instance.stop then
-        instance.stop()
-    end
+    end)()
 end
 
 return module
