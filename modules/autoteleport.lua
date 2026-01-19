@@ -1,15 +1,10 @@
 -- Safe Teleport Module
--- Teleport bertahap untuk menghindari anti-cheat detection
+-- Teleport with anti-cheat bypass
 
 local module = {}
 
--- Services
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
-
--- Teleport bertahap (anti-kick)
-function module.stagedTeleport(character, hrp, targetPosition, steps)
+-- Staged teleport
+function module.stagedTeleport(character, hrp, targetPosition)
     if not character or not hrp then
         return false
     end
@@ -17,17 +12,17 @@ function module.stagedTeleport(character, hrp, targetPosition, steps)
     local currentPos = hrp.Position
     local distance = (targetPosition - currentPos).Magnitude
     
-    -- Jika jarak dekat, teleport langsung
+    -- If close, teleport directly
     if distance < 50 then
         hrp.CFrame = CFrame.new(targetPosition + Vector3.new(0, 5, 0))
         return true
     end
     
-    -- Hitung jumlah step berdasarkan jarak
-    steps = steps or math.min(10, math.floor(distance / 50))
-    steps = math.max(2, steps)
+    -- Calculate steps
+    local steps = math.min(8, math.floor(distance / 30))
+    steps = math.max(3, steps)
     
-    -- Nonaktifkan collision sementara
+    -- Disable collision
     local parts = {}
     for _, part in ipairs(character:GetDescendants()) do
         if part:IsA("BasePart") then
@@ -36,32 +31,25 @@ function module.stagedTeleport(character, hrp, targetPosition, steps)
         end
     end
     
-    -- Lakukan teleport bertahap
+    -- Staged teleport
     for i = 1, steps do
         local t = i / steps
         local interpPos = currentPos:Lerp(targetPosition, t)
-        
-        -- Tambahkan offset vertikal untuk menghindari terrain
-        interpPos = interpPos + Vector3.new(0, 10, 0)
+        interpPos = interpPos + Vector3.new(0, 8, 0)
         
         hrp.CFrame = CFrame.new(interpPos)
+        task.wait(0.06)
         
-        -- Delay kecil antara setiap step
-        task.wait(0.05)
-        
-        -- Cek jika character masih valid
         if not character or not character.Parent then
             break
         end
     end
     
-    -- Pastikan sampai di tujuan
+    -- Final position
     hrp.CFrame = CFrame.new(targetPosition + Vector3.new(0, 5, 0))
     
-    -- Tunggu sedikit sebelum mengembalikan collision
-    task.wait(0.2)
-    
     -- Re-enable collision
+    task.wait(0.2)
     for _, part in ipairs(parts) do
         if part then
             part.CanCollide = true
@@ -71,31 +59,27 @@ function module.stagedTeleport(character, hrp, targetPosition, steps)
     return true
 end
 
--- Safe teleport dengan error handling
+-- Safe teleport
 function module.safeTeleport(character, hrp, targetPosition, callback)
     local success, err = pcall(function()
-        -- Validasi input
-        if not character or not hrp or not targetPosition then
+        if not character or not hrp then
             return false
         end
         
-        -- Nonaktifkan humanoid physics sementara
         local humanoid = character:FindFirstChildOfClass("Humanoid")
-        local wasPlatformStand = false
+        local wasPlatform = false
+        
         if humanoid then
-            wasPlatformStand = humanoid.PlatformStand
+            wasPlatform = humanoid.PlatformStand
             humanoid.PlatformStand = true
         end
         
-        -- Teleport bertahap
         local result = module.stagedTeleport(character, hrp, targetPosition)
         
-        -- Tunggu stabilisasi
         task.wait(0.3)
         
-        -- Aktifkan kembali physics
         if humanoid then
-            humanoid.PlatformStand = wasPlatformStand
+            humanoid.PlatformStand = wasPlatform
         end
         
         return result
@@ -108,7 +92,7 @@ function module.safeTeleport(character, hrp, targetPosition, callback)
     return success
 end
 
--- Teleport langsung (untuk carry)
+-- Instant teleport (for carry)
 function module.instantTeleport(character, hrp, targetPosition)
     if not character or not hrp then
         return false
