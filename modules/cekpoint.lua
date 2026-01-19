@@ -192,7 +192,90 @@ function module.getCheckpointList()
     return list
 end
 
--- Auto teleport to all checkpoints
+-- Cari summit di workspace
+function module.findSummit()
+    local summit = Workspace:FindFirstChild("Summit") or 
+                   Workspace:FindFirstChild("summit") or
+                   Workspace:FindFirstChild("Finish") or
+                   Workspace:FindFirstChild("finish")
+    
+    if summit then
+        if summit:IsA("Model") and summit.PrimaryPart then
+            return summit.PrimaryPart.Position
+        elseif summit:IsA("BasePart") or summit:IsA("MeshPart") then
+            return summit.Position
+        end
+    end
+    
+    -- Cari berdasarkan keyword di semua object
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        local name = obj.Name:lower()
+        if (name:find("summit") or name:find("finish") or name:find("end")) and 
+           (obj:IsA("BasePart") or obj:IsA("MeshPart")) then
+            return obj.Position
+        end
+    end
+    
+    return nil
+end
+
+-- Teleport ke summit
+function module.teleportToSummit()
+    local player = Players.LocalPlayer
+    local character = player.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    
+    if not hrp then
+        print("[Checkpoint] No character found")
+        return false
+    end
+    
+    local summitPosition = module.findSummit()
+    
+    if not summitPosition then
+        print("[Checkpoint] Summit not found")
+        return false
+    end
+    
+    print("[Checkpoint] Teleporting to summit...")
+    
+    local function safeTeleport()
+        -- Disable collision temporarily
+        local parts = {}
+        for _, part in ipairs(character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                parts[part] = part.CanCollide
+                part.CanCollide = false
+            end
+        end
+        
+        -- Teleport ke summit
+        local targetPos = summitPosition + Vector3.new(0, 5, 0)
+        hrp.CFrame = CFrame.new(targetPos)
+        
+        -- Restore collision
+        task.wait(0.2)
+        for part, canCollide in pairs(parts) do
+            if part then
+                part.CanCollide = canCollide
+            end
+        end
+        
+        return true
+    end
+    
+    local success, err = pcall(safeTeleport)
+    
+    if success then
+        print("[Checkpoint] Teleport to summit successful")
+        return true
+    else
+        print("[Checkpoint] Teleport to summit failed:", err)
+        return false
+    end
+end
+
+-- Auto teleport to all checkpoints dengan urutan tertentu
 function module.autoTeleportAll(callback)
     local player = Players.LocalPlayer
     local character = player.Character
@@ -215,3 +298,78 @@ function module.autoTeleportAll(callback)
     coroutine.wrap(function()
         if callback then callback("🎯 Found " .. #checkpoints .. " checkpoints") end
         task.wait(1)
+        
+        -- Teleport ke cp 1
+        if callback then callback("➡️ Teleporting to CP 1...") end
+        module.teleportToCheckpoint(1)
+        task.wait(3)  -- Tunggu 3 detik
+        
+        -- Teleport ke cp 2
+        if callback then callback("➡️ Teleporting to CP 2...") end
+        module.teleportToCheckpoint(2)
+        task.wait(3)  -- Tunggu 3 detik
+        
+        -- Teleport ke semua checkpoint secara berurutan
+        for i = 3, #checkpoints do
+            if callback then callback("➡️ Teleporting to CP " .. i .. "...") end
+            module.teleportToCheckpoint(i)
+            task.wait(1)  -- Tunggu 1 detik antar checkpoint
+        end
+        
+        -- Setelah semua checkpoint, langsung teleport ke summit
+        if callback then callback("🏔️ Teleporting to Summit...") end
+        task.wait(1)
+        module.teleportToSummit()
+        
+        if callback then callback("✅ Completed all checkpoints and summit!") end
+    end)()
+    
+    return true
+end
+
+-- Versi alternatif: teleport ke semua checkpoint dengan jeda 3 detik
+function module.autoTeleportAllWithDelay(callback)
+    local player = Players.LocalPlayer
+    local character = player.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    
+    if not hrp then
+        if callback then callback("❌ No character") end
+        return false
+    end
+    
+    if #checkpoints == 0 then
+        module.scanCheckpoints()
+    end
+    
+    if #checkpoints == 0 then
+        if callback then callback("❌ No checkpoints found") end
+        return false
+    end
+    
+    coroutine.wrap(function()
+        if callback then callback("🎯 Found " .. #checkpoints .. " checkpoints") end
+        task.wait(1)
+        
+        -- Teleport ke semua checkpoint secara berurutan dengan jeda 3 detik
+        for i = 1, #checkpoints do
+            if callback then callback("➡️ Teleporting to CP " .. i .. "...") end
+            module.teleportToCheckpoint(i)
+            
+            if i < #checkpoints then
+                task.wait(3)  -- Tunggu 3 detik sebelum checkpoint berikutnya
+            end
+        end
+        
+        -- Setelah checkpoint terakhir, langsung teleport ke summit
+        if callback then callback("🏔️ Teleporting to Summit...") end
+        task.wait(1)
+        module.teleportToSummit()
+        
+        if callback then callback("✅ Completed all checkpoints and summit!") end
+    end)()
+    
+    return true
+end
+
+return module
