@@ -1,5 +1,5 @@
 -- Auto Checkpoint Completion Module
--- Cari dan teleport ke semua checkpoint secara otomatis
+-- Cari dan teleport ke semua checkpoint secara otomatis anjay
 
 local module = {}
 
