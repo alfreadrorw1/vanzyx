@@ -1,14 +1,18 @@
 -- Vanzyxxx Loader
--- Simple HttpGet to load main script
+-- Minimal loader that loads the main script
 
-if game:GetService("RunService"):IsClient() then
+local MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/main.lua"
+
+-- Check if already loaded
+if not _G.VanzyxxxLoaded then
+    _G.VanzyxxxLoaded = true
+    
+    -- Load main script
     local success, err = pcall(function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/main.lua", true))()
+        loadstring(game:HttpGet(MAIN_SCRIPT_URL))()
     end)
     
     if not success then
-        warn("Loader Error:", err)
+        warn("Vanzyxxx Loader Error:", err)
     end
-else
-    warn("Loader must run on client!")
 end

@@ -1,290 +1,175 @@
 -- Auto Carry Module
--- Automatically carries player through obstacles
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
 
 local module = {}
 
--- Configuration
-local CARRY_SPEED = 30
-local isCarrying = false
-local carryConnection
+-- Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
--- Simple pathfinding function
-local function FindPath(startPos, endPos)
-    local waypoints = {}
-    local distance = (endPos - startPos).Magnitude
+-- Player
+local player = Players.LocalPlayer
+local character = player.Character
+local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+
+-- Module state
+local active = false
+local carrying = false
+local carriedPlayers = {}
+local weldConnections = {}
+
+-- Create weld between two parts
+local function createWeld(part1, part2)
+    local weld = Instance.new("Weld")
+    weld.Part0 = part1
+    weld.Part1 = part2
+    weld.C0 = CFrame.new()
+    weld.C1 = part1.CFrame:inverse() * part2.CFrame
+    weld.Parent = part1
     
-    -- Simple straight line path with intermediate points
-    if distance > 100 then
-        local direction = (endPos - startPos).Unit
-        local steps = math.ceil(distance / 50)
-        
-        for i = 1, steps - 1 do
-            local waypointPos = startPos + (direction * (distance / steps * i))
-            table.insert(waypoints, waypointPos)
-        end
-    end
-    
-    table.insert(waypoints, endPos)
-    return waypoints
+    return weld
 end
 
--- Obstacle detection
-local function DetectObstacles(position, radius)
-    local obstacles = {}
+-- Carry a player
+local function carryPlayer(targetPlayer)
+    if not active or not carrying then return end
+    if targetPlayer == player then return end
     
-    for _, part in ipairs(workspace:GetDescendants()) do
-        if part:IsA("BasePart") and part.CanCollide then
-            if (part.Position - position).Magnitude < radius then
-                table.insert(obstacles, part)
-            end
-        end
-    end
+    local targetCharacter = targetPlayer.Character
+    if not targetCharacter then return end
     
-    return obstacles
+    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    -- Check if already carrying
+    if carriedPlayers[targetPlayer] then return end
+    
+    -- Create weld to carry player
+    local weld = createWeld(humanoidRootPart, targetRoot)
+    carriedPlayers[targetPlayer] = {
+        weld = weld,
+        character = targetCharacter
+    }
+    
+    print("Carrying player:", targetPlayer.Name)
 end
 
--- Safe movement function
-local function MoveToPosition(position)
-    local character = LocalPlayer.Character
-    if not character then return false end
+-- Stop carrying a player
+local function stopCarryPlayer(targetPlayer)
+    local carryData = carriedPlayers[targetPlayer]
+    if not carryData then return end
     
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    
-    if not humanoid or not rootPart then return false end
-    
-    -- Check for obstacles
-    local obstacles = DetectObstacles(rootPart.Position, 20)
-    
-    -- Temporarily disable collision for obstacles
-    local originalCanCollide = {}
-    for _, obstacle in ipairs(obstacles) do
-        originalCanCollide[obstacle] = obstacle.CanCollide
-        obstacle.CanCollide = false
+    -- Remove weld
+    if carryData.weld and carryData.weld.Parent then
+        carryData.weld:Destroy()
     end
     
-    -- Disable humanoid movement during teleport
-    humanoid.AutoRotate = false
-    
-    -- Move in small steps for smooth movement
-    local startPos = rootPart.Position
-    local direction = (position - startPos).Unit
-    local distance = (position - startPos).Magnitude
-    local steps = math.ceil(distance / 10)
-    
-    for i = 1, steps do
-        if not isCarrying then break end
-        
-        local stepPos = startPos + (direction * (distance / steps * i))
-        rootPart.CFrame = CFrame.new(stepPos)
-        
-        RunService.RenderStepped:Wait()
-    end
-    
-    -- Restore collision
-    for obstacle, canCollide in pairs(originalCanCollide) do
-        if obstacle and obstacle.Parent then
-            obstacle.CanCollide = canCollide
-        end
-    end
-    
-    -- Re-enable humanoid
-    humanoid.AutoRotate = true
-    
-    return true
+    carriedPlayers[targetPlayer] = nil
+    print("Stopped carrying player:", targetPlayer.Name)
 end
 
--- Auto-follow checkpoints
-local function AutoFollowCheckpoints()
-    if not LocalPlayer.Character then
-        LocalPlayer.CharacterAdded:Wait()
+-- Stop carrying all players
+local function stopCarryAll()
+    for targetPlayer, carryData in pairs(carriedPlayers) do
+        if carryData.weld and carryData.weld.Parent then
+            carryData.weld:Destroy()
+        end
     end
     
-    task.wait(1)
-    
-    while isCarrying do
-        -- Find nearest checkpoint
-        local checkpoints = {}
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name:lower():find("checkpoint") then
-                table.insert(checkpoints, obj)
-            end
+    carriedPlayers = {}
+    print("Stopped carrying all players")
+end
+
+-- Monitor players joining
+local function monitorPlayers()
+    -- Carry existing players
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if active and carrying then
+            carryPlayer(otherPlayer)
         end
+    end
+    
+    -- Monitor new players
+    local playerAddedConnection = Players.PlayerAdded:Connect(function(newPlayer)
+        if active and carrying then
+            task.wait(2) -- Wait for character to load
+            carryPlayer(newPlayer)
+        end
+    end)
+    
+    -- Monitor players leaving
+    local playerRemovingConnection = Players.PlayerRemoving:Connect(function(leavingPlayer)
+        stopCarryPlayer(leavingPlayer)
+    end)
+    
+    -- Store connections
+    weldConnections["playerAdded"] = playerAddedConnection
+    weldConnections["playerRemoving"] = playerRemovingConnection
+end
+
+-- Character added handler
+local function onCharacterAdded(newCharacter)
+    character = newCharacter
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
+    
+    if active and carrying then
+        -- Stop all carrying and restart
+        stopCarryAll()
+        task.wait(1)
         
-        if #checkpoints > 0 then
-            -- Sort by distance
-            table.sort(checkpoints, function(a, b)
-                local char = LocalPlayer.Character
-                if not char then return false end
-                
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if not root then return false end
-                
-                return (root.Position - a.Position).Magnitude < (root.Position - b.Position).Magnitude
-            end)
-            
-            -- Move to nearest checkpoint
-            local nearest = checkpoints[1]
-            local char = LocalPlayer.Character
-            if char then
-                local root = char:FindFirstChild("HumanoidRootPart")
-                if root then
-                    MoveToPosition(nearest.Position)
-                    
-                    -- Touch checkpoint
-                    firetouchinterest(root, nearest, 0)
-                    task.wait(0.05)
-                    firetouchinterest(root, nearest, 1)
+        if active and carrying then
+            -- Re-carry all players
+            for _, otherPlayer in ipairs(Players:GetPlayers()) do
+                if otherPlayer ~= player then
+                    carryPlayer(otherPlayer)
                 end
             end
         end
-        
-        task.wait(0.5)
     end
-end
-
--- UI Creation
-local function CreateCarryUI(parentFrame)
-    local CarryFrame = Instance.new("Frame")
-    CarryFrame.Name = "CarryControls"
-    CarryFrame.Size = UDim2.new(1, -10, 0, 60)
-    CarryFrame.Position = UDim2.new(0, 5, 0, 135)
-    CarryFrame.BackgroundTransparency = 1
-    
-    -- Title
-    local CarryTitle = Instance.new("TextLabel")
-    CarryTitle.Name = "Title"
-    CarryTitle.Size = UDim2.new(1, 0, 0, 20)
-    CarryTitle.BackgroundTransparency = 1
-    CarryTitle.Text = "AUTO CARRY"
-    CarryTitle.TextColor3 = Color3.fromRGB(200, 200, 255)
-    CarryTitle.TextSize = 14
-    CarryTitle.Font = Enum.Font.GothamBold
-    CarryTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Status
-    local CarryStatus = Instance.new("TextLabel")
-    CarryStatus.Name = "Status"
-    CarryStatus.Size = UDim2.new(1, 0, 0, 20)
-    CarryStatus.Position = UDim2.new(0, 0, 0, 20)
-    CarryStatus.BackgroundTransparency = 1
-    CarryStatus.Text = "Status: OFF"
-    CarryStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
-    CarryStatus.TextSize = 12
-    CarryStatus.Font = Enum.Font.Gotham
-    CarryStatus.TextXAlignment = Enum.TextXAlignment.Left
-    
-    -- Control buttons
-    local ButtonFrame = Instance.new("Frame")
-    ButtonFrame.Name = "Buttons"
-    ButtonFrame.Size = UDim2.new(1, 0, 0, 25)
-    ButtonFrame.Position = UDim2.new(0, 0, 0, 40)
-    ButtonFrame.BackgroundTransparency = 1
-    
-    local StartButton = Instance.new("TextButton")
-    StartButton.Name = "Start"
-    StartButton.Size = UDim2.new(0.48, 0, 1, 0)
-    StartButton.Position = UDim2.new(0, 0, 0, 0)
-    StartButton.BackgroundColor3 = Color3.fromRGB(60, 100, 60)
-    StartButton.Text = "START"
-    StartButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StartButton.TextSize = 12
-    StartButton.Font = Enum.Font.GothamBold
-    
-    local StopButton = Instance.new("TextButton")
-    StopButton.Name = "Stop"
-    StopButton.Size = UDim2.new(0.48, 0, 1, 0)
-    StopButton.Position = UDim2.new(0.52, 0, 0, 0)
-    StopButton.BackgroundColor3 = Color3.fromRGB(100, 60, 60)
-    StopButton.Text = "STOP"
-    StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StopButton.TextSize = 12
-    StopButton.Font = Enum.Font.GothamBold
-    
-    local function ApplyCorner(button)
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
-        corner.Parent = button
-    end
-    
-    ApplyCorner(StartButton)
-    ApplyCorner(StopButton)
-    
-    StartButton.MouseButton1Click:Connect(function()
-        module.Start()
-        CarryStatus.Text = "Status: ON"
-        CarryStatus.TextColor3 = Color3.fromRGB(100, 255, 100)
-    end)
-    
-    StopButton.MouseButton1Click:Connect(function()
-        module.Stop()
-        CarryStatus.Text = "Status: OFF"
-        CarryStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
-    end)
-    
-    CarryTitle.Parent = CarryFrame
-    CarryStatus.Parent = CarryFrame
-    StartButton.Parent = ButtonFrame
-    StopButton.Parent = ButtonFrame
-    ButtonFrame.Parent = CarryFrame
-    CarryFrame.Parent = parentFrame
-    
-    return {
-        Status = CarryStatus,
-        StartButton = StartButton,
-        StopButton = StopButton
-    }
 end
 
 -- Module functions
-function module.Start()
-    if isCarrying then
-        return "ALREADY CARRYING"
+function module.activate()
+    if active then return end
+    
+    active = true
+    carrying = true
+    print("Auto Carry activated")
+    
+    -- Set up character monitoring
+    player.CharacterAdded:Connect(onCharacterAdded)
+    
+    -- Start monitoring players
+    monitorPlayers()
+    
+    -- Carry all current players
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            carryPlayer(otherPlayer)
+        end
     end
-    
-    isCarrying = true
-    _G.AutoCarryRunning = true
-    
-    task.spawn(function()
-        AutoFollowCheckpoints()
-    end)
-    
-    print("[AutoCarry] Started")
-    return "STARTED"
 end
 
-function module.Stop()
-    if not isCarrying then
-        return "NOT CARRYING"
+function module.deactivate()
+    if not active then return end
+    
+    active = false
+    carrying = false
+    
+    -- Stop carrying all players
+    stopCarryAll()
+    
+    -- Disconnect connections
+    for _, connection in pairs(weldConnections) do
+        if connection then
+            connection:Disconnect()
+        end
     end
     
-    isCarrying = false
-    _G.AutoCarryRunning = false
+    weldConnections = {}
     
-    if carryConnection then
-        carryConnection:Disconnect()
-        carryConnection = nil
-    end
-    
-    print("[AutoCarry] Stopped")
-    return "STOPPED"
+    print("Auto Carry deactivated")
 end
 
-function module.GetStatus()
-    return isCarrying and "CARRYING" or "IDLE"
-end
-
--- Create UI when module loads
-task.spawn(function()
-    task.wait(1) -- Wait for main UI to load
-    if _G.VanzyxUI then
-        local uiElements = CreateCarryUI(_G.VanzyxUI.ModulesFrame)
-        _G.CarryUI = uiElements
-    end
-end)
-
+-- Return module
 return module
