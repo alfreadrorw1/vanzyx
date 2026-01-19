@@ -1,5 +1,5 @@
--- Fly Module
--- Provides flight functionality with smooth controls
+-- Jump Module
+-- Membuat player jump 100 kali secara otomatis
 
 local module = {}
 
@@ -13,21 +13,15 @@ local plr = Players.LocalPlayer
 
 -- Module state
 local active = false
-local flyInstance = nil
+local jumpInstance = nil
 local connections = {}
 
 -- Configuration
-local FLY_SPEED = 50
-local FLY_KEYBINDS = {
-    Forward = Enum.KeyCode.W,
-    Backward = Enum.KeyCode.S,
-    Left = Enum.KeyCode.A,
-    Right = Enum.KeyCode.D,
-    Up = Enum.KeyCode.Space,
-    Down = Enum.KeyCode.LeftControl
-}
+local JUMP_COUNT = 100
+local JUMP_DELAY = 0.1 -- Delay antara jump (detik)
+local JUMP_POWER = 50 -- Kekuatan jump
 
-local function createFlyController(character)
+local function createJumpController(character)
     if not character then return nil end
     
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -35,125 +29,121 @@ local function createFlyController(character)
     
     if not hrp or not humanoid then return nil end
     
-    -- Create fly controllers
-    local velocity = Instance.new("BodyVelocity")
-    velocity.Velocity = Vector3.new(0, 0, 0)
-    velocity.MaxForce = Vector3.new(100000, 100000, 100000)
-    velocity.P = 1250
-    velocity.Name = "FlyVelocity"
-    
-    local gyro = Instance.new("BodyGyro")
-    gyro.MaxTorque = Vector3.new(50000, 50000, 50000)
-    gyro.P = 3000
-    gyro.D = 500
-    gyro.CFrame = hrp.CFrame
-    gyro.Name = "FlyGyro"
-    
-    -- Attach to HRP
-    velocity.Parent = hrp
-    gyro.Parent = hrp
-    
-    -- Store input states
-    local inputs = {
-        Forward = false,
-        Backward = false,
-        Left = false,
-        Right = false,
-        Up = false,
-        Down = false
-    }
-    
-    -- Update velocity based on inputs
-    local function updateVelocity()
-        if not hrp or not hrp.Parent then return end
-        
-        local direction = Vector3.new(0, 0, 0)
-        
-        if inputs.Forward then
-            direction = direction + hrp.CFrame.LookVector
-        end
-        if inputs.Backward then
-            direction = direction - hrp.CFrame.LookVector
-        end
-        if inputs.Left then
-            direction = direction - hrp.CFrame.RightVector
-        end
-        if inputs.Right then
-            direction = direction + hrp.CFrame.RightVector
-        end
-        if inputs.Up then
-            direction = direction + Vector3.new(0, 1, 0)
-        end
-        if inputs.Down then
-            direction = direction + Vector3.new(0, -1, 0)
-        end
-        
-        -- Normalize and apply speed
-        if direction.Magnitude > 0 then
-            direction = direction.Unit * FLY_SPEED
-        end
-        
-        velocity.Velocity = direction
-    end
-    
-    -- Input handling
-    local function onInputBegan(input, gameProcessed)
-        if gameProcessed then return end
-        
-        for action, key in pairs(FLY_KEYBINDS) do
-            if input.KeyCode == key then
-                inputs[action] = true
-                updateVelocity()
-                break
+    -- Function untuk melakukan jump
+    local function performJump()
+        if humanoid and humanoid:GetState() ~= Enum.HumanoidStateType.Dead then
+            -- Activate jump state
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            
+            -- Add upward velocity untuk jump lebih tinggi
+            if hrp then
+                local velocity = hrp:FindFirstChild("BodyVelocity")
+                if not velocity then
+                    velocity = Instance.new("BodyVelocity")
+                    velocity.Velocity = Vector3.new(0, JUMP_POWER, 0)
+                    velocity.MaxForce = Vector3.new(0, 100000, 0)
+                    velocity.P = 10000
+                    velocity.Name = "JumpBoost"
+                    velocity.Parent = hrp
+                else
+                    velocity.Velocity = Vector3.new(0, JUMP_POWER, 0)
+                end
             end
         end
     end
     
-    local function onInputEnded(input, gameProcessed)
-        if gameProcessed then return end
-        
-        for action, key in pairs(FLY_KEYBINDS) do
-            if input.KeyCode == key then
-                inputs[action] = false
-                updateVelocity()
-                break
+    -- Function untuk melakukan 100 jump
+    local function startJumpSequence()
+        coroutine.wrap(function()
+            local jumpCount = 0
+            
+            while jumpCount < JUMP_COUNT and humanoid and humanoid.Health > 0 do
+                jumpCount += 1
+                
+                -- Print status jump
+                warn("Jump " .. jumpCount .. "/" .. JUMP_COUNT)
+                
+                -- Lakukan jump
+                performJump()
+                
+                -- Tunggu sebelum jump berikutnya
+                task.wait(JUMP_DELAY)
+                
+                -- Hapus velocity setelah delay kecil
+                if hrp then
+                    local velocity = hrp:FindFirstChild("JumpBoost")
+                    if velocity then
+                        velocity.Velocity = Vector3.new(0, 0, 0)
+                    end
+                end
+                
+                -- Tunggu sampai mendarat (atau timeout)
+                local landed = false
+                local waitTime = 0
+                while not landed and waitTime < 1 and humanoid.Health > 0 do
+                    if humanoid:GetState() == Enum.HumanoidStateType.Running or 
+                       humanoid:GetState() == Enum.HumanoidStateType.RunningNoPhysics or
+                       humanoid:GetState() == Enum.HumanoidStateType.Landed then
+                        landed = true
+                    end
+                    task.wait(0.1)
+                    waitTime += 0.1
+                end
             end
-        end
+            
+            -- Bersihkan velocity setelah selesai
+            if hrp then
+                local velocity = hrp:FindFirstChild("JumpBoost")
+                if velocity then
+                    velocity:Destroy()
+                end
+            end
+            
+            warn("JUMP COMPLETED: " .. JUMP_COUNT .. " jumps!")
+        end)()
     end
     
-    -- Connect input events
-    local inputBegan = UserInputService.InputBegan:Connect(onInputBegan)
-    local inputEnded = UserInputService.InputEnded:Connect(onInputEnded)
-    
-    -- Update gyro to follow camera
-    local renderConnection
-    renderConnection = RunService.RenderStepped:Connect(function()
-        if not hrp or not hrp.Parent then
-            renderConnection:Disconnect()
-            return
+    -- Cegah humanoid mati karena fall damage
+    if humanoid then
+        local function noFallDamage()
+            if humanoid then
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            end
         end
         
-        local cam = workspace.CurrentCamera
-        if cam then
-            gyro.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
-        end
-    end)
+        noFallDamage()
+        
+        -- Update setiap kali humanoid direset
+        local stateChangedConn
+        stateChangedConn = humanoid.StateChanged:Connect(function(oldState, newState)
+            if newState == Enum.HumanoidStateType.FallingDown then
+                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end)
+        
+        table.insert(connections, stateChangedConn)
+    end
     
-    -- Store connections for cleanup
-    table.insert(connections, inputBegan)
-    table.insert(connections, inputEnded)
-    table.insert(connections, renderConnection)
+    -- Mulai jump sequence
+    task.wait(0.5) -- Tunggu character stabil
+    startJumpSequence()
     
     return {
-        velocity = velocity,
-        gyro = gyro,
-        updateSpeed = function(newSpeed)
-            FLY_SPEED = newSpeed
-            updateVelocity()
-        end,
         destroy = function()
-            if velocity then velocity:Destroy() end
-            if gyro then gyro:Destroy() end
+            -- Bersihkan velocity
+            if hrp then
+                local velocity = hrp:FindFirstChild("JumpBoost")
+                if velocity then
+                    velocity:Destroy()
+                end
+            end
+            
+            -- Reset humanoid states
+            if humanoid then
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+            end
             
             for _, conn in ipairs(connections) do
                 conn:Disconnect()
@@ -164,9 +154,13 @@ local function createFlyController(character)
 end
 
 function module.start()
-    if active then return flyInstance end
+    if active then 
+        warn("Jump module already active!")
+        return jumpInstance 
+    end
     
     active = true
+    warn("STARTING 100 JUMPS...")
     
     -- Wait for character
     local character = plr.Character
@@ -174,34 +168,36 @@ function module.start()
         character = plr.CharacterAdded:Wait()
     end
     
-    repeat task.wait() until character:FindFirstChild("HumanoidRootPart")
+    repeat task.wait() until character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid")
     
-    -- Create fly controller
-    flyInstance = createFlyController(character)
+    -- Create jump controller
+    jumpInstance = createJumpController(character)
     
     -- Handle respawn
     local charAddedConn
     charAddedConn = plr.CharacterAdded:Connect(function(newChar)
         task.wait(1) -- Wait for character to load
         
-        if flyInstance then
-            flyInstance.destroy()
+        if jumpInstance then
+            jumpInstance.destroy()
         end
         
-        repeat task.wait() until newChar:FindFirstChild("HumanoidRootPart")
-        flyInstance = createFlyController(newChar)
+        repeat task.wait() until newChar:FindFirstChild("HumanoidRootPart") and newChar:FindFirstChild("Humanoid")
+        
+        warn("Character respawned, restarting jumps...")
+        jumpInstance = createJumpController(newChar)
     end)
     
     table.insert(connections, charAddedConn)
     
-    return flyInstance
+    return jumpInstance
 end
 
-function module.stop(instance)
+function module.stop()
     active = false
     
-    if instance then
-        instance.destroy()
+    if jumpInstance then
+        jumpInstance.destroy()
     end
     
     for _, conn in ipairs(connections) do
@@ -209,7 +205,31 @@ function module.stop(instance)
     end
     connections = {}
     
-    flyInstance = nil
+    jumpInstance = nil
+    warn("Jump module stopped")
+end
+
+-- Function untuk konfigurasi
+function module.configure(options)
+    if options.jumpCount then
+        JUMP_COUNT = options.jumpCount
+    end
+    if options.jumpDelay then
+        JUMP_DELAY = options.jumpDelay
+    end
+    if options.jumpPower then
+        JUMP_POWER = options.jumpPower
+    end
+end
+
+-- Function untuk get status
+function module.getStatus()
+    return {
+        active = active,
+        jumpCount = JUMP_COUNT,
+        jumpDelay = JUMP_DELAY,
+        jumpPower = JUMP_POWER
+    }
 end
 
 return module

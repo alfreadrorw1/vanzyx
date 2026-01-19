@@ -1,5 +1,5 @@
 -- Auto Checkpoint Completion Module
--- Cari dan teleport ke semua checkpoint secara otomatis anjay
+-- Cari dan teleport ke semua checkpoint secara otomatis
 
 local module = {}
 
@@ -68,52 +68,38 @@ function module.findCheckpoints()
     return checkpoints
 end
 
--- Cari summit
+-- Cari posisi summit/finish
 function module.findSummit()
-    -- Cari summit dengan berbagai nama umum
-    local summitNames = {
-        "summit", "finish", "end", "victory", "goal",
-        "final", "top", "peak", "win", "complete"
-    }
-    
-    -- Cari di workspace
+    -- Method 1: Cari objek dengan nama "Summit"
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            local lowerName = obj.Name:lower()
-            for _, name in ipairs(summitNames) do
-                if lowerName:find(name) then
-                    return {
-                        Part = obj,
-                        Position = obj.Position,
-                        Name = obj.Name,
-                        Type = "SUMMIT"
-                    }
-                end
+        if obj:IsA("BasePart") and obj.Name:lower():find("summit") then
+            return obj.Position
+        end
+    end
+    
+    -- Method 2: Cari "Finish"
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Name:lower():find("finish") then
+            return obj.Position
+        end
+    end
+    
+    -- Method 3: Cari area dengan posisi tertinggi
+    local highestPart = nil
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Position.Y > 500 then
+            if not highestPart or obj.Position.Y > highestPart.Position.Y then
+                highestPart = obj
             end
         end
     end
     
-    -- Cari model summit
-    for _, model in ipairs(Workspace:GetChildren()) do
-        if model:IsA("Model") then
-            local lowerName = model.Name:lower()
-            for _, name in ipairs(summitNames) do
-                if lowerName:find(name) then
-                    local primary = model:FindFirstChildWhichIsA("BasePart")
-                    if primary then
-                        return {
-                            Part = primary,
-                            Position = primary.Position,
-                            Name = model.Name,
-                            Type = "SUMMIT"
-                        }
-                    end
-                end
-            end
-        end
+    if highestPart then
+        return highestPart.Position + Vector3.new(0, 10, 0)
     end
     
-    return nil
+    -- Default: posisi tinggi
+    return Vector3.new(0, 1000, 0)
 end
 
 -- Teleport ke checkpoint dengan aman
@@ -130,6 +116,18 @@ function module.teleportToCheckpoint(character, hrp, position, callback)
             if callback then callback(true) end
         end
     end
+end
+
+-- Teleport ke summit
+function module.teleportToSummit(character, hrp)
+    local summitPosition = module.findSummit()
+    module.teleportToCheckpoint(character, hrp, summitPosition, function(success)
+        if success then
+            warn("SUCCESS: Teleported to summit!")
+        else
+            warn("WARNING: Teleport to summit might have failed")
+        end
+    end)
 end
 
 -- Proses utama complete semua checkpoint
@@ -155,70 +153,51 @@ function module.start(character, hrp, humanoid, statusCallback)
         
         if statusCallback then statusCallback("FOUND " .. #checkpoints .. " CP") end
         
-        -- Teleport ke tiap checkpoint dengan delay
+        -- Teleport ke tiap checkpoint
         for i, cp in ipairs(checkpoints) do
             if statusCallback then 
-                statusCallback("CP " .. i .. "/" .. #checkpoints .. " - " .. cp.Name)
+                statusCallback("CP " .. i .. "/" .. #checkpoints)
             end
             
-            -- Teleport ke checkpoint saat ini
+            -- Teleport ke checkpoint
             module.teleportToCheckpoint(character, hrp, cp.Position, function(success)
                 if not success then
-                    warn("Failed to teleport to CP " .. i .. " - " .. cp.Name)
+                    warn("Failed to teleport to CP " .. i)
                 end
             end)
             
-            -- Delay antar checkpoint (1 detik)
+            -- Delay 1 detik di setiap checkpoint sebelum pindah ke checkpoint berikutnya
             task.wait(1)
         end
         
-        -- Tunggu di checkpoint terakhir selama 3 detik
+        -- Tunggu 3 detik di checkpoint terakhir sebelum teleport ke summit
         if #checkpoints > 0 then
             local lastCp = checkpoints[#checkpoints]
-            
-            if statusCallback then 
-                statusCallback("WAITING AT LAST CP FOR 3 SECONDS")
-            end
-            
             module.teleportToCheckpoint(character, hrp, lastCp.Position)
             
+            if statusCallback then 
+                statusCallback("WAITING 3 SEC AT LAST CP...")
+            end
+            
             -- Tunggu 3 detik di checkpoint terakhir
-            for i = 1, 3 do
-                task.wait(1)
-                if statusCallback then 
-                    statusCallback("WAITING... " .. i .. "/3 SECONDS")
-                end
+            task.wait(3)
+            
+            -- Teleport ke summit
+            if statusCallback then 
+                statusCallback("TELEPORTING TO SUMMIT...")
             end
             
-            -- Cari dan teleport ke summit
-            if statusCallback then statusCallback("SEARCHING FOR SUMMIT...") end
+            module.teleportToSummit(character, hrp)
             
-            local summit = module.findSummit()
-            
-            if summit then
-                if statusCallback then statusCallback("FOUND SUMMIT: " .. summit.Name) end
-                
-                -- Teleport ke summit
-                module.teleportToCheckpoint(character, hrp, summit.Position, function(success)
-                    if success then
-                        if statusCallback then statusCallback("TELEPORTED TO SUMMIT!") end
-                    else
-                        if statusCallback then statusCallback("FAILED TO TELEPORT TO SUMMIT") end
-                    end
-                end)
-                
-                -- Tunggu di summit
-                task.wait(2)
-            else
-                if statusCallback then statusCallback("SUMMIT NOT FOUND") end
-            end
+            -- Tunggu 1 detik setelah teleport ke summit
+            task.wait(1)
             
             -- Re-enable humanoid movement
             if humanoid then
                 humanoid.PlatformStand = false
             end
             
-            if statusCallback then statusCallback("FINISHED") end
+            if statusCallback then statusCallback("FINISHED AT SUMMIT!") end
         end
     end)()
 end
