@@ -1,67 +1,57 @@
--- Safe Teleport Module
--- Teleport bertahap untuk menghindari anti-cheat detection
+-- Smart Teleport System
+-- Safe teleport with anti-kick and collision handling
 
 local module = {}
 
--- Services
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+module.name = "autoteleport"
+module.description = "Smart teleport system with anti-kick protection"
 
--- Teleport bertahap (anti-kick)
-function module.stagedTeleport(character, hrp, targetPosition, steps)
+function module.toggle(state)
+    -- This module is always active, toggle does nothing
+    return true
+end
+
+function module.teleport(position, options)
+    options = options or {}
+    local character = module.Character
+    local hrp = module.HumanoidRootPart
+    
     if not character or not hrp then
+        module.Logger.log("Cannot teleport: No character", "ERROR")
         return false
     end
     
-    local currentPos = hrp.Position
-    local distance = (targetPosition - currentPos).Magnitude
+    local originalPosition = hrp.Position
+    local distance = (position - originalPosition).Magnitude
     
-    -- Jika jarak dekat, teleport langsung
-    if distance < 50 then
-        hrp.CFrame = CFrame.new(targetPosition)
-        return true
+    module.Logger.log("Teleporting " .. math.floor(distance) .. " studs", "INFO")
+    
+    -- Determine method based on distance
+    if distance < 100 then
+        return module.instantTeleport(position)
+    else
+        return module.safeTeleport(position, options.steps or math.min(10, math.floor(distance / 50)))
     end
+end
+
+function module.instantTeleport(position)
+    local hrp = module.HumanoidRootPart
+    if not hrp then return false end
     
-    -- Hitung jumlah step berdasarkan jarak
-    steps = steps or math.min(10, math.floor(distance / 20))
-    steps = math.max(2, steps)
-    
-    -- Nonaktifkan collision sementara
+    -- Temporarily disable collision
     local parts = {}
-    for _, part in ipairs(character:GetDescendants()) do
+    for _, part in ipairs(module.Character:GetDescendants()) do
         if part:IsA("BasePart") then
             table.insert(parts, part)
             part.CanCollide = false
         end
     end
     
-    -- Lakukan teleport bertahap
-    for i = 1, steps do
-        local t = i / steps
-        local interpPos = currentPos:Lerp(targetPosition, t)
-        
-        -- Tambahkan sedikit offset vertikal untuk menghindari terrain
-        interpPos = interpPos + Vector3.new(0, 5, 0)
-        
-        hrp.CFrame = CFrame.new(interpPos)
-        
-        -- Delay kecil antara setiap step
-        task.wait(0.05)
-        
-        -- Cek jika character masih valid
-        if not character or not character.Parent then
-            break
-        end
-    end
+    -- Teleport
+    hrp.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
     
-    -- Pastikan sampai di tujuan
-    hrp.CFrame = CFrame.new(targetPosition + Vector3.new(0, 5, 0))
-    
-    -- Tunggu sedikit sebelum mengembalikan collision
+    -- Wait and restore collision
     task.wait(0.2)
-    
-    -- Re-enable collision
     for _, part in ipairs(parts) do
         if part then
             part.CanCollide = true
@@ -71,39 +61,75 @@ function module.stagedTeleport(character, hrp, targetPosition, steps)
     return true
 end
 
--- Safe teleport dengan error handling
-function module.safeTeleport(character, hrp, targetPosition, callback)
-    local success, err = pcall(function()
-        -- Validasi input
-        if not character or not hrp or not targetPosition then
-            return false
-        end
-        
-        -- Nonaktifkan humanoid physics sementara
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.PlatformStand = true
-        end
-        
-        -- Teleport bertahap
-        local result = module.stagedTeleport(character, hrp, targetPosition)
-        
-        -- Tunggu stabilisasi
-        task.wait(0.3)
-        
-        -- Aktifkan kembali physics
-        if humanoid then
-            humanoid.PlatformStand = false
-        end
-        
-        return result
-    end)
+function module.safeTeleport(position, steps)
+    steps = steps or 10
+    local hrp = module.HumanoidRootPart
+    if not hrp then return false end
     
-    if callback then
-        callback(success)
+    local startPos = hrp.Position
+    local success = true
+    
+    -- Disable collision
+    local parts = {}
+    for _, part in ipairs(module.Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            table.insert(parts, part)
+            part.CanCollide = false
+        end
+    end
+    
+    -- Staged teleport
+    for i = 1, steps do
+        if not hrp or not hrp.Parent then break end
+        
+        local t = i / steps
+        local lerpPos = startPos:Lerp(position, t)
+        lerpPos = lerpPos + Vector3.new(0, 3, 0) -- Slight height
+        
+        hrp.CFrame = CFrame.new(lerpPos)
+        task.wait(0.05)
+    end
+    
+    -- Final position
+    if hrp and hrp.Parent then
+        hrp.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
+    end
+    
+    -- Restore collision
+    task.wait(0.3)
+    for _, part in ipairs(parts) do
+        if part and part.Parent then
+            part.CanCollide = true
+        end
     end
     
     return success
+end
+
+-- Teleport to player
+function module.teleportToPlayer(playerName)
+    local targetPlayer = nil
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player.Name:lower():find(playerName:lower()) then
+            targetPlayer = player
+            break
+        end
+    end
+    
+    if not targetPlayer or not targetPlayer.Character then
+        module.Logger.log("Player not found: " .. playerName, "ERROR")
+        return false
+    end
+    
+    local targetHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetHrp then return false end
+    
+    return module.teleport(targetHrp.Position)
+end
+
+-- Teleport to coordinate
+function module.teleportToCoordinate(x, y, z)
+    return module.teleport(Vector3.new(x, y, z))
 end
 
 return module

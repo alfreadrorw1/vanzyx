@@ -1,143 +1,125 @@
--- Auto Checkpoint Completion Module
--- Cari dan teleport ke semua checkpoint secara otomatis
+-- Auto Checkpoint Completer
+-- Automatically finds and teleports to all checkpoints
 
 local module = {}
+local running = false
+local currentCheckpoint = 1
+local totalCheckpoints = 0
 
--- Services
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local TeleportService = game:GetService("TeleportService")
+module.name = "autocp"
+module.description = "Auto-complete all checkpoints in the game"
 
--- Cari semua checkpoint di game
+function module.toggle(state)
+    if state then
+        module.start()
+    else
+        module.stop()
+    end
+end
+
+function module.start()
+    if running then return end
+    running = true
+    
+    module.Logger.log("Starting auto checkpoint...", "INFO")
+    
+    task.spawn(function()
+        local checkpoints = module.findCheckpoints()
+        totalCheckpoints = #checkpoints
+        
+        if totalCheckpoints == 0 then
+            module.Logger.notify("Auto CP", "No checkpoints found!", 3)
+            running = false
+            return
+        end
+        
+        module.Logger.notify("Auto CP", "Found " .. totalCheckpoints .. " checkpoints!", 3)
+        
+        -- Disable fly during checkpoint run
+        if module.Modules.autofly then
+            module.Modules.autofly.toggle(false)
+        end
+        
+        for i, cp in ipairs(checkpoints) do
+            if not running then break end
+            
+            currentCheckpoint = i
+            module.Logger.log("Teleporting to checkpoint " .. i .. "/" .. totalCheckpoints, "INFO")
+            
+            -- Use teleport module if available
+            if module.Modules.autoteleport then
+                module.Modules.autoteleport.teleport(cp.Position)
+            else
+                -- Fallback teleport
+                if module.Character and module.HumanoidRootPart then
+                    module.HumanoidRootPart.CFrame = CFrame.new(cp.Position + Vector3.new(0, 5, 0))
+                end
+            end
+            
+            task.wait(0.5) -- Delay between checkpoints
+        end
+        
+        if running then
+            module.Logger.notify("Auto CP", "Completed all checkpoints!", 5)
+        end
+        
+        running = false
+    end)
+end
+
+function module.stop()
+    running = false
+    module.Logger.log("Auto checkpoint stopped", "INFO")
+end
+
 function module.findCheckpoints()
     local checkpoints = {}
     
-    -- Method 1: Cari part bernama "Checkpoint"
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") and obj.Name:lower():find("checkpoint") then
-            table.insert(checkpoints, {
-                Part = obj,
-                Position = obj.Position,
-                Name = obj.Name
-            })
-        end
-    end
+    -- Search strategies
+    local searchPatterns = {
+        "Checkpoint", "CP", "CheckPoint", "Stage", "Level", "Point"
+    }
     
-    -- Method 2: Cari folder "Checkpoints"
-    local checkpointFolder = Workspace:FindFirstChild("Checkpoints")
-    if checkpointFolder then
-        for _, obj in ipairs(checkpointFolder:GetDescendants()) do
-            if obj:IsA("BasePart") then
-                table.insert(checkpoints, {
-                    Part = obj,
-                    Position = obj.Position,
-                    Name = obj.Name
-                })
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local name = obj.Name:lower()
+            
+            for _, pattern in ipairs(searchPatterns) do
+                if name:find(pattern:lower()) then
+                    table.insert(checkpoints, {
+                        Part = obj,
+                        Position = obj.Position,
+                        Name = obj.Name
+                    })
+                    break
+                end
+            end
+        elseif obj:IsA("Model") then
+            local name = obj.Name:lower()
+            if name:find("checkpoint") or name:find("cp") then
+                local primary = obj:FindFirstChildWhichIsA("BasePart")
+                if primary then
+                    table.insert(checkpoints, {
+                        Part = primary,
+                        Position = primary.Position,
+                        Name = obj.Name
+                    })
+                end
             end
         end
     end
     
-    -- Method 3: Cari model dengan nama checkpoint
-    for _, model in ipairs(Workspace:GetChildren()) do
-        if model:IsA("Model") and model.Name:lower():find("checkpoint") then
-            local primary = model:FindFirstChildWhichIsA("BasePart")
-            if primary then
-                table.insert(checkpoints, {
-                    Part = primary,
-                    Position = primary.Position,
-                    Name = model.Name
-                })
-            end
-        end
-    end
-    
-    -- Urutkan checkpoint
+    -- Sort by position (Z-axis typically)
     table.sort(checkpoints, function(a, b)
-        -- Coba ekstrak angka dari nama
-        local numA = tonumber(string.match(a.Name, "%d+")) or 0
-        local numB = tonumber(string.match(b.Name, "%d+")) or 0
-        
-        if numA ~= numB then
-            return numA < numB
-        else
-            -- Jika tidak ada angka, urutkan berdasarkan posisi Z
-            return a.Position.Z < b.Position.Z
-        end
+        return a.Position.Z < b.Position.Z
     end)
     
     return checkpoints
 end
 
--- Teleport ke checkpoint dengan aman
-function module.teleportToCheckpoint(character, hrp, position, callback)
-    local teleportModule = require(script.Parent.autoteleport)
-    
-    if teleportModule then
-        teleportModule.safeTeleport(character, hrp, position, callback)
-    else
-        -- Fallback teleport sederhana
-        if character and hrp then
-            hrp.CFrame = CFrame.new(position)
-            task.wait(0.2)
-            if callback then callback(true) end
-        end
-    end
-end
-
--- Proses utama complete semua checkpoint
-function module.start(character, hrp, humanoid, statusCallback)
-    if not character or not hrp then
-        if statusCallback then statusCallback("ERROR") end
-        return
-    end
-    
-    coroutine.wrap(function()
-        -- Nonaktifkan humanoid movement sementara
-        if humanoid then
-            humanoid.PlatformStand = true
-        end
-        
-        -- Cari semua checkpoint
-        local checkpoints = module.findCheckpoints()
-        
-        if #checkpoints == 0 then
-            if statusCallback then statusCallback("NO CHECKPOINTS") end
-            return
-        end
-        
-        if statusCallback then statusCallback("FOUND " .. #checkpoints .. " CP") end
-        
-        -- Teleport ke tiap checkpoint
-        for i, cp in ipairs(checkpoints) do
-            if statusCallback then 
-                statusCallback("CP " .. i .. "/" .. #checkpoints)
-            end
-            
-            module.teleportToCheckpoint(character, hrp, cp.Position, function(success)
-                if not success then
-                    warn("Failed to teleport to CP " .. i)
-                end
-            end)
-            
-            -- Delay antar checkpoint
-            task.wait(math.random(20, 30) / 100) -- 0.2-0.3 detik
-        end
-        
-        -- Tunggu di checkpoint terakhir
-        if #checkpoints > 0 then
-            local lastCp = checkpoints[#checkpoints]
-            module.teleportToCheckpoint(character, hrp, lastCp.Position)
-            
-            task.wait(1)
-            
-            -- Re-enable humanoid movement
-            if humanoid then
-                humanoid.PlatformStand = false
-            end
-            
-            if statusCallback then statusCallback("FINISHED") end
-        end
-    end)()
+function module.getProgress()
+    if totalCheckpoints == 0 then return 0 end
+    return math.floor((currentCheckpoint / totalCheckpoints) * 100)
 end
 
 return module
