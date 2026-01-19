@@ -33,7 +33,7 @@ local modules = {
 -- Load modules from GitHub
 local function loadModule(name)
     local success, module = pcall(function()
-        local url = "https://raw.githubusercontent.com/vanzyx/main/main/modules/" .. name .. ".lua"
+        local url = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/modules/" .. name .. ".lua"
         local source = game:HttpGet(url)
         return loadstring(source)()
     end)
@@ -61,7 +61,7 @@ for _, gui in ipairs(Player.PlayerGui:GetChildren()) do
 end
 
 -- Floating Logo
-local logoUrl = "https://raw.githubusercontent.com/vanzyx/main/main/img/logo.png"
+local logoUrl = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/img/logo.png"
 local logo = Instance.new("ImageButton")
 logo.Name = "FloatingLogo"
 logo.Image = logoUrl

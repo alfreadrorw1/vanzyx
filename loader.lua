@@ -3,7 +3,7 @@
 
 if game:GetService("RunService"):IsClient() then
     local success, err = pcall(function()
-        local mainScript = game:HttpGet("https://raw.githubusercontent.com/vanzyx/main/main.lua")
+        local mainScript = game:HttpGet("https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/main.lua")
         loadstring(mainScript)()
     end)
     
