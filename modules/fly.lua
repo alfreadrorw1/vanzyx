@@ -1,33 +1,19 @@
--- Fly Module
--- Provides flight functionality with smooth controls
-
+-- Fly Module dengan kontrol analog
 local module = {}
 
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- Player
 local plr = Players.LocalPlayer
-
--- Module state
 local active = false
-local flyInstance = nil
+local flyController = nil
 local connections = {}
 
--- Configuration
-local FLY_SPEED = 50
-local FLY_KEYBINDS = {
-    Forward = Enum.KeyCode.W,
-    Backward = Enum.KeyCode.S,
-    Left = Enum.KeyCode.A,
-    Right = Enum.KeyCode.D,
-    Up = Enum.KeyCode.Space,
-    Down = Enum.KeyCode.LeftControl
-}
+local FLY_SPEED = 100
+local TILT_SPEED = 2
 
-local function createFlyController(character)
+local function createFlySystem(character)
     if not character then return nil end
     
     local hrp = character:FindFirstChild("HumanoidRootPart")
@@ -35,121 +21,149 @@ local function createFlyController(character)
     
     if not hrp or not humanoid then return nil end
     
-    -- Create fly controllers
+    -- Buat velocity dan gyro
     local velocity = Instance.new("BodyVelocity")
     velocity.Velocity = Vector3.new(0, 0, 0)
     velocity.MaxForce = Vector3.new(100000, 100000, 100000)
     velocity.P = 1250
-    velocity.Name = "FlyVelocity"
     
     local gyro = Instance.new("BodyGyro")
     gyro.MaxTorque = Vector3.new(50000, 50000, 50000)
     gyro.P = 3000
     gyro.D = 500
     gyro.CFrame = hrp.CFrame
-    gyro.Name = "FlyGyro"
     
-    -- Attach to HRP
     velocity.Parent = hrp
     gyro.Parent = hrp
     
-    -- Store input states
-    local inputs = {
-        Forward = false,
-        Backward = false,
-        Left = false,
-        Right = false,
-        Up = false,
-        Down = false
-    }
+    -- State untuk kontrol
+    local moveDirection = Vector3.new(0, 0, 0)
+    local camera = workspace.CurrentCamera
     
-    -- Update velocity based on inputs
-    local function updateVelocity()
-        if not hrp or not hrp.Parent then return end
+    -- Fungsi update movement
+    local function updateMovement()
+        if not hrp or not hrp.Parent or not camera then return end
         
-        local direction = Vector3.new(0, 0, 0)
+        -- Hitung arah berdasarkan input
+        local forward = camera.CFrame.LookVector * moveDirection.Z
+        local right = camera.CFrame.RightVector * moveDirection.X
+        local up = Vector3.new(0, moveDirection.Y, 0)
         
-        if inputs.Forward then
-            direction = direction + hrp.CFrame.LookVector
-        end
-        if inputs.Backward then
-            direction = direction - hrp.CFrame.LookVector
-        end
-        if inputs.Left then
-            direction = direction - hrp.CFrame.RightVector
-        end
-        if inputs.Right then
-            direction = direction + hrp.CFrame.RightVector
-        end
-        if inputs.Up then
-            direction = direction + Vector3.new(0, 1, 0)
-        end
-        if inputs.Down then
-            direction = direction + Vector3.new(0, -1, 0)
-        end
+        local direction = forward + right + up
         
-        -- Normalize and apply speed
         if direction.Magnitude > 0 then
             direction = direction.Unit * FLY_SPEED
         end
         
         velocity.Velocity = direction
+        
+        -- Update rotation untuk ikut kamera
+        gyro.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
     end
     
-    -- Input handling
+    -- Keyboard controls
     local function onInputBegan(input, gameProcessed)
         if gameProcessed then return end
         
-        for action, key in pairs(FLY_KEYBINDS) do
-            if input.KeyCode == key then
-                inputs[action] = true
-                updateVelocity()
-                break
-            end
+        -- Movement keys
+        if input.KeyCode == Enum.KeyCode.W then
+            moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, 1)
+        elseif input.KeyCode == Enum.KeyCode.S then
+            moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, -1)
+        elseif input.KeyCode == Enum.KeyCode.A then
+            moveDirection = Vector3.new(-1, moveDirection.Y, moveDirection.Z)
+        elseif input.KeyCode == Enum.KeyCode.D then
+            moveDirection = Vector3.new(1, moveDirection.Y, moveDirection.Z)
+        elseif input.KeyCode == Enum.KeyCode.Space then
+            moveDirection = Vector3.new(moveDirection.X, 1, moveDirection.Z)
+        elseif input.KeyCode == Enum.KeyCode.LeftControl then
+            moveDirection = Vector3.new(moveDirection.X, -1, moveDirection.Z)
         end
+        
+        updateMovement()
     end
     
     local function onInputEnded(input, gameProcessed)
         if gameProcessed then return end
         
-        for action, key in pairs(FLY_KEYBINDS) do
-            if input.KeyCode == key then
-                inputs[action] = false
-                updateVelocity()
-                break
-            end
+        if input.KeyCode == Enum.KeyCode.W or input.KeyCode == Enum.KeyCode.S then
+            moveDirection = Vector3.new(moveDirection.X, moveDirection.Y, 0)
+        elseif input.KeyCode == Enum.KeyCode.A or input.KeyCode == Enum.KeyCode.D then
+            moveDirection = Vector3.new(0, moveDirection.Y, moveDirection.Z)
+        elseif input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftControl then
+            moveDirection = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+        end
+        
+        updateMovement()
+    end
+    
+    -- Touch/analog controls
+    local touchStartPos = nil
+    local touchActive = false
+    
+    local function onTouchBegan(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.UserInputType == Enum.UserInputType.Touch then
+            touchStartPos = input.Position
+            touchActive = true
         end
     end
     
-    -- Connect input events
-    local inputBegan = UserInputService.InputBegan:Connect(onInputBegan)
-    local inputEnded = UserInputService.InputEnded:Connect(onInputEnded)
-    
-    -- Update gyro to follow camera
-    local renderConnection
-    renderConnection = RunService.RenderStepped:Connect(function()
-        if not hrp or not hrp.Parent then
-            renderConnection:Disconnect()
-            return
-        end
+    local function onTouchMoved(input, gameProcessed)
+        if gameProcessed or not touchStartPos then return end
         
-        local cam = workspace.CurrentCamera
-        if cam then
-            gyro.CFrame = CFrame.new(hrp.Position, hrp.Position + cam.CFrame.LookVector)
+        if input.UserInputType == Enum.UserInputType.Touch and touchActive then
+            local delta = input.Position - touchStartPos
+            local sensitivity = 0.005
+            
+            -- Analog stick simulation
+            moveDirection = Vector3.new(
+                math.clamp(delta.X * sensitivity, -1, 1),
+                moveDirection.Y,
+                math.clamp(-delta.Y * sensitivity, -1, 1)  -- Inverted Y for natural feel
+            )
+            
+            updateMovement()
         end
-    end)
+    end
     
-    -- Store connections for cleanup
-    table.insert(connections, inputBegan)
-    table.insert(connections, inputEnded)
-    table.insert(connections, renderConnection)
+    local function onTouchEnded(input, gameProcessed)
+        if gameProcessed then return end
+        
+        if input.UserInputType == Enum.UserInputType.Touch then
+            touchActive = false
+            touchStartPos = nil
+            
+            -- Reset horizontal movement
+            moveDirection = Vector3.new(0, moveDirection.Y, 0)
+            updateMovement()
+        end
+    end
+    
+    -- Connect semua event
+    local conn1 = UserInputService.InputBegan:Connect(onInputBegan)
+    local conn2 = UserInputService.InputEnded:Connect(onInputEnded)
+    local conn3 = UserInputService.TouchStarted:Connect(onTouchBegan)
+    local conn4 = UserInputService.TouchMoved:Connect(onTouchMoved)
+    local conn5 = UserInputService.TouchEnded:Connect(onTouchEnded)
+    
+    -- Update loop
+    local renderConn = RunService.RenderStepped:Connect(updateMovement)
+    
+    -- Simpan semua connections
+    table.insert(connections, conn1)
+    table.insert(connections, conn2)
+    table.insert(connections, conn3)
+    table.insert(connections, conn4)
+    table.insert(connections, conn5)
+    table.insert(connections, renderConn)
     
     return {
         velocity = velocity,
         gyro = gyro,
-        updateSpeed = function(newSpeed)
-            FLY_SPEED = newSpeed
-            updateVelocity()
+        setSpeed = function(speed)
+            FLY_SPEED = speed
         end,
         destroy = function()
             if velocity then velocity:Destroy() end
@@ -164,37 +178,36 @@ local function createFlyController(character)
 end
 
 function module.start()
-    if active then return flyInstance end
+    if active then return flyController end
     
     active = true
     
-    -- Wait for character
+    -- Tunggu character
     local character = plr.Character
     if not character then
         character = plr.CharacterAdded:Wait()
     end
     
-    repeat task.wait() until character:FindFirstChild("HumanoidRootPart")
+    repeat task.wait(0.1) until character:FindFirstChild("HumanoidRootPart")
     
-    -- Create fly controller
-    flyInstance = createFlyController(character)
+    -- Buat fly system
+    flyController = createFlySystem(character)
     
     -- Handle respawn
-    local charAddedConn
-    charAddedConn = plr.CharacterAdded:Connect(function(newChar)
-        task.wait(1) -- Wait for character to load
+    local charConn = plr.CharacterAdded:Connect(function(newChar)
+        task.wait(1)
         
-        if flyInstance then
-            flyInstance.destroy()
+        if flyController then
+            flyController.destroy()
         end
         
-        repeat task.wait() until newChar:FindFirstChild("HumanoidRootPart")
-        flyInstance = createFlyController(newChar)
+        repeat task.wait(0.1) until newChar:FindFirstChild("HumanoidRootPart")
+        flyController = createFlySystem(newChar)
     end)
     
-    table.insert(connections, charAddedConn)
+    table.insert(connections, charConn)
     
-    return flyInstance
+    return flyController
 end
 
 function module.stop(instance)
@@ -209,7 +222,7 @@ function module.stop(instance)
     end
     connections = {}
     
-    flyInstance = nil
+    flyController = nil
 end
 
 return module

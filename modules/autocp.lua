@@ -1,138 +1,116 @@
--- Auto Complete Checkpoints Module
--- Handles automatic checkpoint completion with sorting and safe teleportation
-
+-- Auto Complete Checkpoints Module (Fixed)
 local module = {}
 
--- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
--- Player
 local plr = Players.LocalPlayer
-
--- Module state
 local active = false
-local currentConnection = nil
+local currentTask = nil
 
--- Utility functions
 local function waitForCharacter()
     local character = plr.Character
     if not character then
         character = plr.CharacterAdded:Wait()
     end
-    repeat task.wait() until character:FindFirstChild("HumanoidRootPart")
+    repeat task.wait(0.1) until character:FindFirstChild("HumanoidRootPart")
     return character
 end
 
 local function safeTeleport(hrp, position)
-    if not hrp or not hrp.Parent then return false end
-    
-    local humanoid = hrp.Parent:FindFirstChild("Humanoid")
-    local originalCollision = hrp.CanCollide
-    local originalTransparency = hrp.Transparency
-    
-    -- Disable collisions and make invisible during teleport
-    hrp.CanCollide = false
-    hrp.Transparency = 1
-    
-    -- Store original humanoid properties
-    local originalWalkSpeed, originalJumpPower
-    if humanoid then
-        originalWalkSpeed = humanoid.WalkSpeed
-        originalJumpPower = humanoid.JumpPower
-        humanoid.WalkSpeed = 0
-        humanoid.JumpPower = 0
+    if not hrp or not hrp.Parent then 
+        return false, "No HRP"
     end
     
-    -- Teleport with CFrame to preserve orientation
-    hrp.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
+    local success, err = pcall(function()
+        local humanoid = hrp.Parent:FindFirstChild("Humanoid")
+        local originalCollision = hrp.CanCollide
+        
+        -- Disable collision
+        hrp.CanCollide = false
+        
+        -- Save original properties
+        local originalWalkSpeed, originalJumpPower
+        if humanoid then
+            originalWalkSpeed = humanoid.WalkSpeed
+            originalJumpPower = humanoid.JumpPower
+            humanoid.WalkSpeed = 0
+            humanoid.JumpPower = 0
+        end
+        
+        -- Teleport ke posisi
+        hrp.CFrame = CFrame.new(position + Vector3.new(0, 3, 0))
+        
+        -- Tunggu physics update
+        for _ = 1, 3 do
+            RunService.Heartbeat:Wait()
+        end
+        
+        -- Restore properties
+        hrp.CanCollide = originalCollision
+        if humanoid then
+            humanoid.WalkSpeed = originalWalkSpeed or 16
+            humanoid.JumpPower = originalJumpPower or 50
+        end
+        
+        return true
+    end)
     
-    -- Wait for physics
-    RunService.Heartbeat:Wait()
-    RunService.Heartbeat:Wait()
-    
-    -- Restore properties
-    hrp.CanCollide = originalCollision
-    hrp.Transparency = originalTransparency
-    
-    if humanoid then
-        humanoid.WalkSpeed = originalWalkSpeed or 16
-        humanoid.JumpPower = originalJumpPower or 50
-    end
-    
-    return true
+    return success, err
 end
 
-local function extractNumber(str)
-    local num = str:match("%d+")
-    return num and tonumber(num) or 0
-end
-
-local function getCheckpoints()
+local function findCheckpoints()
     local checkpoints = {}
     
-    -- Search for checkpoints in workspace
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("UnionOperation") then
+    -- Cari semua BasePart dengan nama checkpoint
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") or obj:IsA("MeshPart") then
             local name = obj.Name:lower()
-            if name:find("checkpoint") or name:find("cp") or name:find("flag") or name:find("point") then
-                -- Check if it's in a checkpoint folder
-                local parent = obj.Parent
-                if parent and (parent.Name:lower():find("checkpoint") or parent.Name:lower():find("cp")) then
+            if name:find("checkpoint") or name:find("cp") or 
+               name:find("flag") or name:find("point") or
+               name:find("stage") or name:find("level") or
+               name:find("finish") or name:find("end") then
+                
+                table.insert(checkpoints, {
+                    Part = obj,
+                    Position = obj.Position,
+                    Name = obj.Name
+                })
+            end
+        elseif obj:IsA("Model") then
+            local modelName = obj.Name:lower()
+            if modelName:find("checkpoint") or modelName:find("cp") then
+                local primary = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                if primary then
                     table.insert(checkpoints, {
-                        Part = obj,
-                        Position = obj.Position,
-                        Number = extractNumber(parent.Name) * 1000 + extractNumber(obj.Name)
-                    })
-                else
-                    table.insert(checkpoints, {
-                        Part = obj,
-                        Position = obj.Position,
-                        Number = extractNumber(obj.Name)
+                        Part = primary,
+                        Position = primary.Position,
+                        Name = obj.Name
                     })
                 end
             end
         end
     end
     
-    -- Also check for checkpoint models
-    for _, obj in pairs(workspace:GetChildren()) do
-        if obj:IsA("Model") and (obj.Name:lower():find("checkpoint") or obj.Name:lower():find("cp")) then
-            local primary = obj:FindFirstChild("PrimaryPart") or obj:FindFirstChildWhichIsA("BasePart")
-            if primary then
-                table.insert(checkpoints, {
-                    Part = primary,
-                    Position = primary.Position,
-                    Number = extractNumber(obj.Name) * 1000
-                })
-            end
-        end
-    end
-    
-    -- Sort checkpoints
+    -- Sort berdasarkan Z position (game progression)
     table.sort(checkpoints, function(a, b)
-        if a.Number ~= b.Number and a.Number > 0 and b.Number > 0 then
-            return a.Number < b.Number
-        else
-            -- Sort by Z position (assuming forward is positive Z)
-            return a.Position.Z < b.Position.Z
-        end
+        return a.Position.Z < b.Position.Z
     end)
     
-    -- Remove duplicates (checkpoints too close to each other)
+    -- Remove duplicates (posisi terlalu dekat)
     local filtered = {}
-    local minDistance = 10
+    local minDistance = 15
     
-    for i, cp in ipairs(checkpoints) do
-        local tooClose = false
-        for j, other in ipairs(filtered) do
-            if (cp.Position - other.Position).Magnitude < minDistance then
-                tooClose = true
+    for _, cp in ipairs(checkpoints) do
+        local isDuplicate = false
+        for _, existing in ipairs(filtered) do
+            if (cp.Position - existing.Position).Magnitude < minDistance then
+                isDuplicate = true
                 break
             end
         end
-        if not tooClose then
+        if not isDuplicate then
             table.insert(filtered, cp)
         end
     end
@@ -140,92 +118,102 @@ local function getCheckpoints()
     return filtered
 end
 
--- Main function
 function module.start()
-    if active then return end
+    if active then 
+        print("[AutoCP] Already running")
+        return nil 
+    end
+    
     active = true
     
-    local statusFunction = function(msg)
-        -- This would update the GUI status through the main module
+    local statusUpdate = function(msg)
         print("[AutoCP]", msg)
     end
     
-    coroutine.wrap(function()
-        statusFunction("🔍 Finding checkpoints...")
+    currentTask = task.spawn(function()
+        statusUpdate("🔍 Mencari checkpoint...")
         
         local character = waitForCharacter()
         local hrp = character:FindFirstChild("HumanoidRootPart")
+        
         if not hrp then
-            statusFunction("❌ No HumanoidRootPart found")
+            statusUpdate("❌ Tidak ada HumanoidRootPart")
+            active = false
             return
         end
         
-        local checkpoints = getCheckpoints()
-        
-        if #checkpoints == 0 then
-            statusFunction("❌ No checkpoints found")
-            return
-        end
-        
-        statusFunction("🎯 Found " .. #checkpoints .. " checkpoints")
-        
-        -- Create a loop that continues until stopped
         while active do
-            for i, cp in ipairs(checkpoints) do
-                if not active then break end
-                
-                statusFunction("📍 CP " .. i .. "/" .. #checkpoints)
-                
-                -- Teleport to checkpoint
-                if safeTeleport(hrp, cp.Position) then
-                    -- Wait a bit to ensure checkpoint registers
-                    for _ = 1, 3 do
-                        if not active then break end
-                        RunService.Heartbeat:Wait()
-                    end
-                else
-                    statusFunction("⚠️ Failed to teleport to CP " .. i)
-                end
-                
-                -- Small delay between teleports
-                local delay = 0.2 + math.random() * 0.1
-                local elapsed = 0
-                while elapsed < delay and active do
-                    RunService.Heartbeat:Wait()
-                    elapsed = elapsed + RunService.Heartbeat:Wait()
-                end
-            end
+            local checkpoints = findCheckpoints()
             
-            -- Check if we should stop (if no progress was made)
-            if active then
-                statusFunction("✅ All checkpoints completed")
+            if #checkpoints == 0 then
+                statusUpdate("❌ Tidak ada checkpoint ditemukan")
                 
-                -- Wait a bit before restarting
-                task.wait(2)
+                -- Coba lagi dalam 2 detik
+                for _ = 1, 20 do
+                    if not active then break end
+                    RunService.Heartbeat:Wait()
+                end
+            else
+                statusUpdate("🎯 Ditemukan " .. #checkpoints .. " checkpoint")
                 
-                -- Refresh checkpoints in case new ones appeared
-                checkpoints = getCheckpoints()
-                if #checkpoints == 0 then
-                    statusFunction("🎉 Summit reached!")
-                    break
+                for i, cp in ipairs(checkpoints) do
+                    if not active then break end
+                    
+                    statusUpdate("📍 Checkpoint " .. i .. "/" .. #checkpoints .. " - " .. cp.Name)
+                    
+                    -- Teleport
+                    local success, err = safeTeleport(hrp, cp.Position)
+                    
+                    if success then
+                        -- Tunggu sebentar
+                        for _ = 1, 5 do
+                            if not active then break end
+                            RunService.Heartbeat:Wait()
+                        end
+                    else
+                        statusUpdate("⚠️ Gagal teleport: " .. tostring(err))
+                    end
+                    
+                    -- Delay antar checkpoint
+                    local delay = 0.25
+                    local elapsed = 0
+                    while elapsed < delay and active do
+                        RunService.Heartbeat:Wait()
+                        elapsed = elapsed + RunService.Heartbeat:Wait()
+                    end
+                end
+                
+                if active then
+                    statusUpdate("✅ Semua checkpoint selesai!")
+                    
+                    -- Tunggu sebelum scan ulang
+                    task.wait(3)
                 end
             end
         end
-    end)()
+    end)
     
     return {
         stop = function()
             active = false
-            statusFunction("⏹️ Stopped")
+            if currentTask then
+                task.cancel(currentTask)
+                currentTask = nil
+            end
+            statusUpdate("⏹️ Berhenti")
         end
     }
 end
 
 function module.stop(instance)
+    active = false
+    if currentTask then
+        task.cancel(currentTask)
+        currentTask = nil
+    end
     if instance and instance.stop then
         instance.stop()
     end
-    active = false
 end
 
 return module
