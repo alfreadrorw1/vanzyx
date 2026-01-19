@@ -1,99 +1,151 @@
--- Vanzyxxx V5 - MODULAR VERSION
+-- Vanzyxxx V5 - RE-FIXED MODULAR
 local Players = game:GetService("Players")
 local plr = Players.LocalPlayer
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 
--- Folder Modules (Pastikan folder ini ada atau gunakan script loader)
-local Theme = {
+-- Global Settings (Bisa diakses dari file lain)
+_G.Theme = {
     Main = Color3.fromRGB(20, 20, 25),
     Sidebar = Color3.fromRGB(25, 25, 30),
     Accent = Color3.fromRGB(140, 0, 255),
-    Text = Color3.fromRGB(255, 255, 255)
+    Text = Color3.fromRGB(255, 255, 255),
+    Secondary = Color3.fromRGB(35, 35, 40)
 }
 
 local ScreenGui = Instance.new("ScreenGui", plr.PlayerGui)
-ScreenGui.Name = "Vanzyxxx_Modular"
+ScreenGui.Name = "Vanzy_V5_Fixed"
 ScreenGui.ResetOnSpawn = false
 
--- MAIN FRAME
+-- 1. MINIMIZE LOGO (BULAT V5)
+local MiniLogo = Instance.new("TextButton")
+MiniLogo.Name = "MiniLogo"
+MiniLogo.Size = UDim2.new(0, 50, 0, 50)
+MiniLogo.Position = UDim2.new(0, 50, 0, 50)
+MiniLogo.BackgroundColor3 = _G.Theme.Accent
+MiniLogo.Text = "V5"
+MiniLogo.TextColor3 = _G.Theme.Text
+MiniLogo.Font = Enum.Font.GothamBlack
+MiniLogo.TextSize = 18
+MiniLogo.Visible = false
+MiniLogo.Parent = ScreenGui
+Instance.new("UICorner", MiniLogo).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", MiniLogo).Thickness = 2
+
+-- 2. MAIN FRAME
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 400, 0, 250)
+MainFrame.Size = UDim2.new(0, 420, 0, 280)
 MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainFrame.BackgroundColor3 = Theme.Main
+MainFrame.BackgroundColor3 = _G.Theme.Main
 MainFrame.ClipsDescendants = true
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", MainFrame).Color = Theme.Accent
+Instance.new("UICorner", MainFrame)
+local MainStroke = Instance.new("UIStroke", MainFrame)
+MainStroke.Color = _G.Theme.Accent
 
--- TITLE (PINDAH KE ATAS TENGAH)
-local TitleLabel = Instance.new("TextLabel", MainFrame)
-TitleLabel.Size = UDim2.new(1, 0, 0, 40)
-TitleLabel.Position = UDim2.new(0, 0, 0, 0)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "VANZYXXX V5"
+-- 3. TITLE (TENGAH ATAS)
+local TopBar = Instance.new("Frame", MainFrame)
+TopBar.Size = UDim2.new(1, 0, 0, 45)
+TopBar.BackgroundTransparency = 1
+
+local TitleLabel = Instance.new("TextLabel", TopBar)
+TitleLabel.Size = UDim2.new(1, 0, 1, 0)
+TitleLabel.Text = "VANZYXXX V5 PREMIUM"
 TitleLabel.Font = Enum.Font.GothamBlack
-TitleLabel.TextSize = 18
-TitleLabel.TextColor3 = Theme.Accent
+TitleLabel.TextColor3 = _G.Theme.Accent
+TitleLabel.TextSize = 16
+TitleLabel.BackgroundTransparency = 1
 
--- SIDEBAR
+-- 4. SIDEBAR & CONTENT
 local Sidebar = Instance.new("Frame", MainFrame)
-Sidebar.Size = UDim2.new(0, 110, 1, -40)
-Sidebar.Position = UDim2.new(0, 0, 0, 40)
-Sidebar.BackgroundColor3 = Theme.Sidebar
-Sidebar.BorderSizePixel = 0
+Sidebar.Size = UDim2.new(0, 120, 1, -45)
+Sidebar.Position = UDim2.new(0, 0, 0, 45)
+Sidebar.BackgroundColor3 = _G.Theme.Sidebar
 
 local SideLayout = Instance.new("UIListLayout", Sidebar)
-SideLayout.Padding = UDim.new(0, 5)
+SideLayout.Padding = UDim.new(0, 6)
 SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
--- CONTENT AREA
 local Content = Instance.new("Frame", MainFrame)
-Content.Size = UDim2.new(1, -120, 1, -50)
-Content.Position = UDim2.new(0, 115, 0, 45)
+Content.Size = UDim2.new(1, -130, 1, -55)
+Content.Position = UDim2.new(0, 125, 0, 50)
 Content.BackgroundTransparency = 1
 
-local Pages = {}
+_G.Pages = {}
 
--- Helper Function: Button dengan Icon (Padding Fix)
+-- FUNCTION: ADD MENU BUTTON (DENGAN PADDING ICON)
 _G.AddMenuBtn = function(name, iconOffset)
     local btn = Instance.new("TextButton", Sidebar)
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    btn.Size = UDim2.new(0.9, 0, 0, 32)
+    btn.BackgroundColor3 = _G.Theme.Secondary
     btn.Text = name
-    btn.TextColor3 = Color3.fromRGB(220, 220, 220)
+    btn.TextColor3 = Color3.fromRGB(200, 200, 200)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 10
-    btn.AutoButtonColor = true
+    btn.TextSize = 11
+    btn.TextXAlignment = Enum.TextXAlignment.Left
     Instance.new("UICorner", btn)
 
+    local pad = Instance.new("UIPadding", btn)
+    pad.PaddingLeft = UDim.new(0, 35) -- Jarak teks agar tidak kena icon
+
     local ico = Instance.new("ImageLabel", btn)
-    ico.Size = UDim2.new(0, 16, 0, 16)
-    ico.Position = UDim2.new(0, 8, 0.5, -8) -- Jarak 8 pixel dari kiri
+    ico.Size = UDim2.new(0, 18, 0, 18)
+    ico.Position = UDim2.new(0, -27, 0.5, -9) -- Posisi relatif terhadap padding
     ico.BackgroundTransparency = 1
     ico.Image = "rbxassetid://3926305904"
     ico.ImageRectOffset = iconOffset
     ico.ImageRectSize = Vector2.new(36, 36)
 
-    -- Text Padding (Agar text tidak menabrak icon)
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    local padding = Instance.new("UIPadding", btn)
-    padding.PaddingLeft = UDim.new(0, 30) -- Memberi ruang untuk icon
-
-    btn.MouseButton1Click:Connect(function()
-        for _, p in pairs(Pages) do p.Visible = false end
-        if Pages[name] then Pages[name].Visible = true end
-    end)
-    
     local p = Instance.new("ScrollingFrame", Content)
     p.Name = name
     p.Size = UDim2.new(1, 0, 1, 0)
     p.BackgroundTransparency = 1
     p.Visible = false
-    p.CanvasSize = UDim2.new(0, 0, 0, 0)
+    p.ScrollBarThickness = 2
     p.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    Pages[name] = p
+    
+    _G.Pages[name] = p
+
+    btn.MouseButton1Click:Connect(function()
+        for _, pg in pairs(_G.Pages) do pg.Visible = false end
+        p.Visible = true
+    end)
     return p
 end
 
--- Load Modules (Simulasi pemanggilan file lain)
--- loadstring(game:HttpGet("link_ke_checkpoint.lua"))()
+-- CLOSE & MINIMIZE LOGIC
+local CloseBtn = Instance.new("TextButton", TopBar)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 7)
+CloseBtn.Text = "×"
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.TextColor3 = Color3.new(1,1,1)
+CloseBtn.TextSize = 20
+Instance.new("UICorner", CloseBtn)
+
+local function ToggleUI()
+    local visible = MainFrame.Visible
+    MainFrame.Visible = not visible
+    MiniLogo.Visible = visible
+end
+
+CloseBtn.MouseButton1Click:Connect(ToggleUI)
+MiniLogo.MouseButton1Click:Connect(ToggleUI)
+
+-- DRAG SYSTEM
+local function MakeDraggable(obj)
+    local dragging, dragStart, startPos
+    obj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = obj.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    obj.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
+end
+MakeDraggable(MainFrame)
+MakeDraggable(MiniLogo)

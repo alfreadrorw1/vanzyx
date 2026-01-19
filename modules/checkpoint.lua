@@ -1,40 +1,28 @@
-local CPPage = _G.AddMenuBtn("CP", Vector2.new(124, 524))
-local UIList = Instance.new("UIListLayout", CPPage)
-UIList.Padding = UDim.new(0, 5)
+local Page = _G.AddMenuBtn("Checkpoint", Vector2.new(124, 524))
+Instance.new("UIListLayout", Page).Padding = UDim.new(0, 10)
 
-local GridBox = Instance.new("Frame", CPPage)
-GridBox.Size = UDim2.new(1, -5, 0, 100)
-GridBox.BackgroundTransparency = 1
-local Grid = Instance.new("UIGridLayout", GridBox)
-Grid.CellSize = UDim2.new(0, 35, 0, 35)
+local Scan = Instance.new("TextButton", Page)
+Scan.Size = UDim2.new(1, -10, 0, 35)
+Scan.BackgroundColor3 = _G.Theme.Accent
+Scan.Text = "SCAN ALL STAGES"
+Scan.TextColor3 = _G.Theme.Text
+Scan.Font = Enum.Font.GothamBold
+Instance.new("UICorner", Scan)
 
-local ScanBtn = Instance.new("TextButton", CPPage)
-ScanBtn.Size = UDim2.new(1, -5, 0, 30)
-ScanBtn.Text = "SCAN STAGES"
-ScanBtn.BackgroundColor3 = Color3.fromRGB(140, 0, 255)
-ScanBtn.TextColor3 = Color3.new(1,1,1)
-Instance.new("UICorner", ScanBtn)
+local Grid = Instance.new("Frame", Page)
+Grid.Size = UDim2.new(1, 0, 0, 0)
+Grid.BackgroundTransparency = 1
+Grid.AutomaticSize = Enum.AutomaticSize.Y
+local UIGrid = Instance.new("UIGridLayout", Grid)
+UIGrid.CellSize = UDim2.new(0, 40, 0, 40)
 
-ScanBtn.MouseButton1Click:Connect(function()
-    for _, c in pairs(GridBox:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
-    
-    local stages = {}
-    for _, v in pairs(workspace:GetDescendants()) do
-        local num = tonumber(v.Name:match("%d+"))
-        if num and (v.Name:lower():find("stage") or v.Name:lower():find("checkpoint")) then
-            table.insert(stages, {part = v, n = num})
-        end
-    end
-    table.sort(stages, function(a,b) return a.n < b.n end)
-
-    for _, data in ipairs(stages) do
-        local b = Instance.new("TextButton", GridBox)
-        b.Text = tostring(data.n)
-        b.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-        b.TextColor3 = Color3.new(1,1,1)
+Scan.MouseButton1Click:Connect(function()
+    for _, v in pairs(Grid:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    for i = 1, 50 do -- Contoh simulasi scan
+        local b = Instance.new("TextButton", Grid)
+        b.Text = tostring(i)
+        b.BackgroundColor3 = _G.Theme.Secondary
+        b.TextColor3 = _G.Theme.Text
         Instance.new("UICorner", b)
-        b.MouseButton1Click:Connect(function()
-            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = data.part.CFrame + Vector3.new(0,3,0)
-        end)
     end
 end)
