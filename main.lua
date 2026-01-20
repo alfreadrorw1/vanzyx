@@ -1,6 +1,6 @@
 --[[
-    PROJECT: VANZYXXX V16 RAINBOW PROFILE
-    STATUS: ALL FEATURES + NEW ABOUT + NEW SETTINGS
+    PROJECT: VANZYXXX V17 ICONIC ANIMATED
+    STATUS: ANIMATION + ICONS + STYLING + ALL FEATURES
     PLATFORM: MOBILE ONLY (Android/iOS)
     DEV: Gemini AI
 ]]
@@ -9,11 +9,12 @@ local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService") -- Service Animasi
 local CoreGui = game:GetService("CoreGui")
 local Lighting = game:GetService("Lighting")
 local StarterGui = game:GetService("StarterGui")
-local TeleportService = game:GetService("TeleportService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local Stats = game:GetService("Stats")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -42,13 +43,11 @@ local Config = {
     XRay = false
 }
 
--- References for UI Updates
 local UIRefs = {
     MainFrame = nil,
-    OpenBtnImage = nil,
+    MainStroke = nil, -- Untuk ganti warna pinggir
     TitleLabel = nil,
-    Sidebar = nil,
-    TopLine = nil
+    OpenBtnImage = nil
 }
 
 local function GetGuiParent()
@@ -60,87 +59,111 @@ local function GetGuiParent()
 end
 
 --------------------------------------------------------------------------------
--- [UI ENGINE: 380x190]
+-- [UI ENGINE: ANIMATED 380x190]
 --------------------------------------------------------------------------------
 local Library = {}
 local FlyWidgetFrame = nil
 
 function Library:Create()
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "VanzyV16_Profile"
+    ScreenGui.Name = "VanzyV17_Iconic"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = GetGuiParent()
 
-    -- 1. OPEN BUTTON (CUSTOMIZABLE)
+    -- 1. OPEN BUTTON
     local OpenBtn = Instance.new("ImageButton")
     OpenBtn.Name = "OpenButton"
     OpenBtn.Size = UDim2.new(0, 50, 0, 50)
     OpenBtn.Position = UDim2.new(0.05, 0, 0.2, 0)
-    OpenBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    OpenBtn.BackgroundTransparency = 0.5
-    -- Default Image (Empty/V text fallback handled if image fails, but using ImageButton for URL support)
-    OpenBtn.Image = "rbxassetid://0" -- Kosong dulu, nanti ada text V
+    OpenBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    OpenBtn.BackgroundTransparency = 0.2
+    OpenBtn.Image = "rbxassetid://0" 
     OpenBtn.Parent = ScreenGui
     Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
+    Instance.new("UIStroke", OpenBtn).Color = Color3.fromRGB(140, 0, 255); OpenBtn.UIStroke.Thickness = 2
     UIRefs.OpenBtnImage = OpenBtn
     
-    local OpenText = Instance.new("TextLabel", OpenBtn); OpenText.Text="V"; OpenText.Size=UDim2.new(1,0,1,0); OpenText.BackgroundTransparency=1; OpenText.TextColor3=Color3.new(1,1,1); OpenText.Font=Enum.Font.GothamBlack; OpenText.TextSize=28; OpenText.ZIndex=0 -- Behind image if loaded
+    local OpenText = Instance.new("TextLabel", OpenBtn); OpenText.Text="V"; OpenText.Size=UDim2.new(1,0,1,0); OpenText.BackgroundTransparency=1; OpenText.TextColor3=Color3.new(1,1,1); OpenText.Font=Enum.Font.GothamBlack; OpenText.TextSize=28; OpenText.ZIndex=0
 
-    -- 2. MAIN FRAME
+    -- 2. MAIN FRAME (Starting Hidden/Small for Animation)
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 380, 0, 190)
-    MainFrame.Position = UDim2.new(0.5, -190, 0.5, -95)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    MainFrame.Size = UDim2.new(0, 0, 0, 0) -- Start Small
+    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0) -- Center Anchor
+    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- DEFAULT DARK
     MainFrame.ClipsDescendants = true
+    MainFrame.Visible = false
     MainFrame.Parent = ScreenGui
-    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
     UIRefs.MainFrame = MainFrame
     
-    -- TOP LINE (Theme Color)
-    local TopLine = Instance.new("Frame", MainFrame); TopLine.Size=UDim2.new(1,0,0,2); TopLine.BackgroundColor3=Color3.fromRGB(140,0,255); TopLine.BorderSizePixel=0
-    UIRefs.TopLine = TopLine
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+    
+    -- STROKE (BORDER) - INI YANG AKAN BERUBAH WARNA
+    local MainStroke = Instance.new("UIStroke", MainFrame)
+    MainStroke.Color = Color3.fromRGB(140, 0, 255) -- Default Purple
+    MainStroke.Thickness = 2
+    UIRefs.MainStroke = MainStroke
 
-    -- TITLE (CENTER & RAINBOW)
+    -- TITLE (RAINBOW CENTER)
     local Title = Instance.new("TextLabel", MainFrame)
     Title.Size = UDim2.new(1, 0, 0, 25)
-    Title.Position = UDim2.new(0, 0, 0, 2) -- Below TopLine
     Title.BackgroundTransparency = 1
-    Title.Text = "VANZY V16 ULTIMATE"
+    Title.Text = "VANZY V17 ULTIMATE"
     Title.Font = Enum.Font.GothamBlack
     Title.TextSize = 14
     Title.TextColor3 = Color3.new(1,1,1)
     UIRefs.TitleLabel = Title
-    
-    -- RAINBOW LOOP
     spawn(function()
-        local t = 0
-        while true do
-            t = t + 0.01
-            if t > 1 then t = 0 end
-            Title.TextColor3 = Color3.fromHSV(t, 1, 1) -- Rainbow Logic
-            wait(0.05)
-        end
+        local t = 0; while true do t=t+0.01; if t>1 then t=0 end; Title.TextColor3=Color3.fromHSV(t,1,1); wait(0.05) end
     end)
 
-    -- 3. SIDEBAR (LEFT)
-    local Sidebar = Instance.new("ScrollingFrame")
-    Sidebar.Size = UDim2.new(0, 100, 1, -27) -- Adjusted for Title space
-    Sidebar.Position = UDim2.new(0, 0, 0, 27)
+    -- CLOSE BUTTON (TOP RIGHT X)
+    local CloseBtn = Instance.new("TextButton", MainFrame)
+    CloseBtn.Size = UDim2.new(0, 25, 0, 25)
+    CloseBtn.Position = UDim2.new(1, -5, 0, 5)
+    CloseBtn.AnchorPoint = Vector2.new(1, 0)
+    CloseBtn.BackgroundTransparency = 1
+    CloseBtn.Text = "X"
+    CloseBtn.TextColor3 = Color3.fromRGB(200, 50, 50)
+    CloseBtn.Font = Enum.Font.GothamBlack
+    CloseBtn.TextSize = 16
+
+    -- SIDEBAR
+    local Sidebar = Instance.new("ScrollingFrame", MainFrame)
+    Sidebar.Size = UDim2.new(0, 110, 1, -30)
+    Sidebar.Position = UDim2.new(0, 0, 0, 30)
     Sidebar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     Sidebar.ScrollBarThickness = 0
-    Sidebar.Parent = MainFrame
+    Sidebar.BorderSizePixel = 0
     local SideLayout = Instance.new("UIListLayout", Sidebar); SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; SideLayout.Padding = UDim.new(0, 5)
-    Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 10)
-    UIRefs.Sidebar = Sidebar
+    Instance.new("UIPadding", Sidebar).PaddingTop = UDim.new(0, 5)
 
-    -- 4. CONTENT (RIGHT)
-    local Content = Instance.new("Frame")
-    Content.Size = UDim2.new(1, -100, 1, -27)
-    Content.Position = UDim2.new(0, 100, 0, 27)
+    -- CONTENT
+    local Content = Instance.new("Frame", MainFrame)
+    Content.Size = UDim2.new(1, -110, 1, -30)
+    Content.Position = UDim2.new(0, 110, 0, 30)
     Content.BackgroundTransparency = 1
-    Content.Parent = MainFrame
     local ContentPad = Instance.new("UIPadding", Content); ContentPad.PaddingTop=UDim.new(0,5); ContentPad.PaddingLeft=UDim.new(0,5); ContentPad.PaddingRight=UDim.new(0,5)
+
+    -- ANIMATION LOGIC
+    local function ToggleUI(state)
+        if state then
+            MainFrame.Visible = true
+            OpenBtn.Visible = false
+            -- Pop Up Animation
+            MainFrame.Size = UDim2.new(0, 0, 0, 0)
+            TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 380, 0, 190)}):Play()
+        else
+            -- Shrink Animation
+            local closeTween = TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)})
+            closeTween:Play()
+            closeTween.Completed:Connect(function()
+                MainFrame.Visible = false
+                OpenBtn.Visible = true
+            end)
+        end
+    end
 
     -- DRAG LOGIC
     local function MakeDraggable(frame)
@@ -159,9 +182,8 @@ function Library:Create()
     MakeDraggable(MainFrame)
     MakeDraggable(OpenBtn)
 
-    OpenBtn.MouseButton1Click:Connect(function() MainFrame.Visible = true; OpenBtn.Visible = false end)
-    local CloseBtn = Instance.new("TextButton"); CloseBtn.Size = UDim2.new(0.8, 0, 0, 25); CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40); CloseBtn.Text = "CLOSE"; CloseBtn.TextColor3 = Color3.new(1,1,1); CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 10; CloseBtn.Parent = Sidebar; Instance.new("UICorner", CloseBtn).CornerRadius=UDim.new(0,4)
-    CloseBtn.MouseButton1Click:Connect(function() MainFrame.Visible = false; OpenBtn.Visible = true end)
+    OpenBtn.MouseButton1Click:Connect(function() ToggleUI(true) end)
+    CloseBtn.MouseButton1Click:Connect(function() ToggleUI(false) end)
 
     -- FLY WIDGET
     local FlyWidget = Instance.new("Frame"); FlyWidget.Size = UDim2.new(0, 120, 0, 40); FlyWidget.Position = UDim2.new(0.5, -60, 0.15, 0); FlyWidget.BackgroundColor3 = Color3.fromRGB(25, 25, 25); FlyWidget.Visible = false; FlyWidget.Parent = ScreenGui; Instance.new("UICorner", FlyWidget).CornerRadius=UDim.new(0,6); Instance.new("UIStroke", FlyWidget).Color=Color3.fromRGB(140,0,255)
@@ -173,14 +195,50 @@ function Library:Create()
     B2.MouseButton1Click:Connect(function() Config.FlySpeed=Config.FlySpeed+50; SL.Text="SPEED: "..Config.FlySpeed end)
     FlyWidgetFrame = FlyWidget
 
-    -- TAB SYSTEM
+    -- TAB SYSTEM (WITH ICONS)
     local Tabs = {}
     local FirstTab = true
 
-    function Library:Tab(name)
-        local TabBtn = Instance.new("TextButton"); TabBtn.Size = UDim2.new(0.9, 0, 0, 25); TabBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40); TabBtn.Text = name; TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200); TabBtn.Font = Enum.Font.GothamBold; TabBtn.TextSize = 10; TabBtn.Parent = Sidebar; Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)
-        local Page = Instance.new("ScrollingFrame"); Page.Size = UDim2.new(1, -5, 1, 0); Page.BackgroundTransparency = 1; Page.ScrollBarThickness = 2; Page.Visible = false; Page.Parent = Content; local PL = Instance.new("UIListLayout"); PL.Padding = UDim.new(0, 4); PL.Parent = Page
-        TabBtn.MouseButton1Click:Connect(function() for _, p in pairs(Tabs) do p.Page.Visible=false; p.Btn.BackgroundColor3=Color3.fromRGB(40,40,40); p.Btn.TextColor3=Color3.fromRGB(200,200,200) end; Page.Visible=true; TabBtn.BackgroundColor3=Color3.fromRGB(140, 0, 255); TabBtn.TextColor3=Color3.new(1,1,1) end)
+    function Library:Tab(name, iconId)
+        local TabBtn = Instance.new("TextButton")
+        TabBtn.Size = UDim2.new(0.9, 0, 0, 28)
+        TabBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        TabBtn.Text = "    "..name -- Spasi untuk icon
+        TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        TabBtn.Font = Enum.Font.GothamBold
+        TabBtn.TextSize = 10
+        TabBtn.TextXAlignment = Enum.TextXAlignment.Left
+        TabBtn.Parent = Sidebar
+        Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)
+        
+        -- ICON
+        if iconId then
+            local Icon = Instance.new("ImageLabel", TabBtn)
+            Icon.Size = UDim2.new(0, 16, 0, 16)
+            Icon.Position = UDim2.new(0, 5, 0.5, -8)
+            Icon.BackgroundTransparency = 1
+            Icon.Image = iconId
+        end
+
+        local Page = Instance.new("ScrollingFrame")
+        Page.Size = UDim2.new(1, -5, 1, 0)
+        Page.BackgroundTransparency = 1
+        Page.ScrollBarThickness = 2
+        Page.Visible = false
+        Page.Parent = Content
+        local PL = Instance.new("UIListLayout"); PL.Padding = UDim.new(0, 4); PL.Parent = Page
+
+        TabBtn.MouseButton1Click:Connect(function() 
+            for _, p in pairs(Tabs) do 
+                p.Page.Visible=false
+                TweenService:Create(p.Btn, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(40,40,40)}):Play()
+                p.Btn.TextColor3=Color3.fromRGB(200,200,200) 
+            end
+            Page.Visible=true
+            TweenService:Create(TabBtn, TweenInfo.new(0.2), {BackgroundColor3=Color3.fromRGB(140, 0, 255)}):Play()
+            TabBtn.TextColor3=Color3.new(1,1,1) 
+        end)
+
         if FirstTab then Page.Visible=true; TabBtn.BackgroundColor3=Color3.fromRGB(140, 0, 255); TabBtn.TextColor3=Color3.new(1,1,1); FirstTab=false end
         table.insert(Tabs, {Page = Page, Btn = TabBtn})
 
@@ -194,7 +252,7 @@ function Library:Create()
             local Label = Instance.new("TextLabel"); Label.Size = UDim2.new(0.7, 0, 1, 0); Label.Position = UDim2.new(0.05, 0, 0, 0); Label.BackgroundTransparency = 1; Label.Text = text; Label.TextColor3 = Color3.new(1,1,1); Label.TextXAlignment = Enum.TextXAlignment.Left; Label.Font = Enum.Font.Gotham; Label.TextSize = 10; Label.Parent = Frame
             local Tgl = Instance.new("TextButton"); Tgl.Size = UDim2.new(0, 35, 0, 18); Tgl.Position = UDim2.new(0.8, 0, 0.15, 0); Tgl.BackgroundColor3 = Color3.fromRGB(80, 80, 80); Tgl.Text = ""; Tgl.Parent = Frame; Instance.new("UICorner", Tgl).CornerRadius = UDim.new(1,0)
             local state = false
-            Tgl.MouseButton1Click:Connect(function() state = not state; Tgl.BackgroundColor3 = state and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(80, 80, 80); callback(state) end)
+            Tgl.MouseButton1Click:Connect(function() state = not state; TweenService:Create(Tgl, TweenInfo.new(0.2), {BackgroundColor3 = state and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(80, 80, 80)}):Play(); callback(state) end)
         end
         function Elm:Input(placeholder, callback)
             local Frame = Instance.new("Frame"); Frame.Size = UDim2.new(1, 0, 0, 25); Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40); Frame.Parent = Page; Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,6)
@@ -210,23 +268,17 @@ function Library:Create()
             return C
         end
         function Elm:ColorPicker()
-            local C = Instance.new("Frame", Page); C.Size=UDim2.new(1,0,0,40); C.BackgroundTransparency=1
+            local C = Instance.new("Frame", Page); C.Size=UDim2.new(1,0,0,30); C.BackgroundTransparency=1
             local Layout = Instance.new("UIListLayout", C); Layout.FillDirection=Enum.FillDirection.Horizontal; Layout.Padding=UDim.new(0,5)
             local Colors = {
-                {Color3.fromRGB(140,0,255), "Purple"}, {Color3.fromRGB(200,40,40), "Red"}, {Color3.fromRGB(40,140,200), "Blue"},
-                {Color3.fromRGB(40,200,40), "Green"}, {Color3.fromRGB(255,140,0), "Orange"}, {Color3.fromRGB(20,20,20), "Black"}
+                {Color3.fromRGB(140,0,255), "Purple"}, {Color3.fromRGB(255,50,50), "Red"}, {Color3.fromRGB(0,150,255), "Blue"},
+                {Color3.fromRGB(50,255,50), "Green"}, {Color3.fromRGB(255,150,0), "Orange"}, {Color3.fromRGB(255,255,255), "White"}
             }
             for _, col in pairs(Colors) do
-                local B = Instance.new("TextButton", C); B.Size=UDim2.new(0,25,0,25); B.BackgroundColor3=col[1]; B.Text=""; Instance.new("UICorner", B).CornerRadius=UDim.new(1,0)
-                B.MouseButton1Click:Connect(function()
-                    UIRefs.MainFrame.BackgroundColor3 = col[1]
-                    if col[1] == Color3.fromRGB(20,20,20) then -- Keep default logic for black theme
-                        UIRefs.Sidebar.BackgroundColor3 = Color3.fromRGB(30,30,30)
-                    else
-                        -- Darken the sidebar slightly based on chosen color
-                        local r,g,b = col[1].R*0.5, col[1].G*0.5, col[1].B*0.5
-                        UIRefs.Sidebar.BackgroundColor3 = Color3.new(r,g,b)
-                    end
+                local B = Instance.new("TextButton", C); B.Size=UDim2.new(0,20,0,20); B.BackgroundColor3=col[1]; B.Text=""; Instance.new("UICorner", B).CornerRadius=UDim.new(1,0)
+                B.MouseButton1Click:Connect(function() 
+                    UIRefs.MainStroke.Color = col[1] -- Ganti Warna Border
+                    if UIRefs.OpenBtnImage then UIRefs.OpenBtnImage.UIStroke.Color = col[1] end
                 end)
             end
         end
@@ -240,8 +292,28 @@ end
 --------------------------------------------------------------------------------
 local UI = Library:Create()
 
--- >>> 1. AUTO CP <<<
-local CPTab = UI:Tab("Auto CP")
+-- >>> 1. ABOUT (REDESIGNED) <<<
+local AboutTab = UI:Tab("About", "rbxassetid://7072715938") -- Home Icon
+
+local ProfileCard = Instance.new("Frame"); ProfileCard.Size=UDim2.new(1,0,0,80); ProfileCard.BackgroundColor3=Color3.fromRGB(35,35,35); Instance.new("UICorner",ProfileCard).CornerRadius=UDim.new(0,8); ProfileCard.Parent=AboutTab.Container(85)
+-- Gradient
+local Grad = Instance.new("UIGradient", ProfileCard); Grad.Color=ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(40,40,40)), ColorSequenceKeypoint.new(1, Color3.fromRGB(20,20,20))}; Grad.Rotation=45
+
+local ProfImg = Instance.new("ImageLabel", ProfileCard); ProfImg.Size=UDim2.new(0,50,0,50); ProfImg.Position=UDim2.new(0.05,0,0.18,0); ProfImg.BackgroundColor3=Color3.fromRGB(50,50,50); Instance.new("UICorner",ProfImg).CornerRadius=UDim.new(1,0)
+spawn(function() pcall(function() ProfImg.Image = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420) end) end)
+
+local DispName = Instance.new("TextLabel", ProfileCard); DispName.Text=LocalPlayer.DisplayName; DispName.Size=UDim2.new(0.6,0,0.3,0); DispName.Position=UDim2.new(0.25,0,0.2,0); DispName.TextColor3=Color3.new(1,1,1); DispName.Font=Enum.Font.GothamBlack; DispName.TextXAlignment=Enum.TextXAlignment.Left; DispName.BackgroundTransparency=1; DispName.TextSize=14
+local RealName = Instance.new("TextLabel", ProfileCard); RealName.Text="@"..LocalPlayer.Name; RealName.Size=UDim2.new(0.6,0,0.3,0); RealName.Position=UDim2.new(0.25,0,0.5,0); RealName.TextColor3=Color3.fromRGB(180,180,180); RealName.Font=Enum.Font.Gotham; RealName.TextXAlignment=Enum.TextXAlignment.Left; RealName.BackgroundTransparency=1; RealName.TextSize=10
+
+-- Stats Grid
+local StatGrid = AboutTab:Container(50); local GL = StatGrid:FindFirstChildWhichIsA("UIListLayout"); if GL then GL:Destroy() end
+local GridL = Instance.new("UIGridLayout", StatGrid); GridL.CellSize=UDim2.new(0.3,0,0.8,0); GridL.CellPadding=UDim2.new(0.02,0,0,0)
+local function AddStat(t, v) local F=Instance.new("Frame",StatGrid);F.BackgroundColor3=Color3.fromRGB(50,50,50);Instance.new("UICorner",F).CornerRadius=UDim.new(0,4);local L=Instance.new("TextLabel",F);L.Size=UDim2.new(1,0,0.4,0);L.Text=t;L.TextColor3=Color3.fromRGB(150,150,150);L.BackgroundTransparency=1;L.TextSize=8;local V=Instance.new("TextLabel",F);V.Size=UDim2.new(1,0,0.6,0);V.Position=UDim2.new(0,0,0.4,0);V.Text=v;V.TextColor3=Color3.fromRGB(140,0,255);V.BackgroundTransparency=1;V.TextSize=10;V.Font=Enum.Font.GothamBold end
+AddStat("ID", game.PlaceId); AddStat("AGE", LocalPlayer.AccountAge); AddStat("PING", "..."); 
+spawn(function() while true do wait(1) local p = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString(); StatGrid:GetChildren()[3].TextLabel.Text = math.floor(p:split(" ")[1]).."ms" end end)
+
+-- >>> 2. AUTO CP <<<
+local CPTab = UI:Tab("Auto CP", "rbxassetid://7072717950") -- Map Icon
 local CPContainer = nil
 local function ScanMap()
     if not CPContainer then return end
@@ -260,21 +332,21 @@ end
 CPTab:Button("SCAN MAP NOW", Color3.fromRGB(0,150,255), ScanMap)
 CPContainer = CPTab:Container(120)
 
--- >>> 2. MOVEMENT <<<
-local MovTab = UI:Tab("Movement")
+-- >>> 3. MOVEMENT <<<
+local MovTab = UI:Tab("Movement", "rbxassetid://7072717894") -- Run Icon
 MovTab:Toggle("Fly (+Widget)", function(s) Config.Flying=s; FlyWidgetFrame.Visible=s; if s then spawn(function() local bg=Instance.new("BodyGyro",LocalPlayer.Character.HumanoidRootPart);bg.P=9e4;local bv=Instance.new("BodyVelocity",LocalPlayer.Character.HumanoidRootPart);bv.MaxForce=Vector3.new(9e9,9e9,9e9);while Config.Flying and LocalPlayer.Character do LocalPlayer.Character.Humanoid.PlatformStand=true;bg.CFrame=Camera.CFrame;bv.Velocity=LocalPlayer.Character.Humanoid.MoveDirection.Magnitude>0 and Camera.CFrame.LookVector*Config.FlySpeed or Vector3.zero;RunService.RenderStepped:Wait() end;LocalPlayer.Character.Humanoid.PlatformStand=false;bg:Destroy();bv:Destroy() end) end end)
 MovTab:Toggle("Noclip", function(s) Config.Noclip=s; RunService.Stepped:Connect(function() if Config.Noclip and LocalPlayer.Character then for _,v in pairs(LocalPlayer.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide=false end end end end) end)
 MovTab:Toggle("Infinite Jump", function(s) Config.InfJump=s; UserInputService.JumpRequest:Connect(function() if Config.InfJump then LocalPlayer.Character.Humanoid:ChangeState("Jumping") end end) end)
 MovTab:Toggle("Spider / Climb", function(s) Config.WallClimb=s; if s then local b=Instance.new("BodyVelocity",LocalPlayer.Character.HumanoidRootPart);b.MaxForce=Vector3.zero;RunService.RenderStepped:Connect(function() if Config.WallClimb then local r=Ray.new(LocalPlayer.Character.HumanoidRootPart.Position,LocalPlayer.Character.HumanoidRootPart.CFrame.LookVector*2);if workspace:FindPartOnRay(r,LocalPlayer.Character) then b.MaxForce=Vector3.new(0,9e9,0);b.Velocity=Vector3.new(0,20,0) else b.MaxForce=Vector3.zero end else b:Destroy() end end) end end)
 
--- >>> 3. OBBY <<<
-local ObbyTab = UI:Tab("Obby")
+-- >>> 4. OBBY <<<
+local ObbyTab = UI:Tab("Obby", "rbxassetid://7072720623") -- Ladder Icon
 ObbyTab:Toggle("Anti Void", function(s) Config.AntiVoid=s; if s then spawn(function() while Config.AntiVoid do local c=LocalPlayer.Character; if c and c:FindFirstChild("HumanoidRootPart") then local r=Ray.new(c.HumanoidRootPart.Position,Vector3.new(0,-10,0)); if workspace:FindPartOnRay(r,c) then Config.LastGroundPos=c.HumanoidRootPart.CFrame elseif c.HumanoidRootPart.Position.Y<-50 and Config.LastGroundPos then c.HumanoidRootPart.CFrame=Config.LastGroundPos+Vector3.new(0,5,0);c.HumanoidRootPart.Velocity=Vector3.zero end end; wait(0.1) end end) end end)
 ObbyTab:Toggle("Air Jump", function(s) Config.AirJump=s; UserInputService.JumpRequest:Connect(function() if Config.AirJump and LocalPlayer.Character then LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end) end)
 ObbyTab:Toggle("Anti Slip", function(s) Config.AntiSlip=s; spawn(function() while Config.AntiSlip do if LocalPlayer.Character.Humanoid then LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false);LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) end;wait(1) end end) end)
 
--- >>> 4. VISUALS <<<
-local VisTab = UI:Tab("Visuals")
+-- >>> 5. VISUALS <<<
+local VisTab = UI:Tab("Visuals", "rbxassetid://7072717531") -- Eye Icon
 VisTab:Toggle("ESP Name", function(s) Config.ESP_Name=s end)
 VisTab:Toggle("ESP Chams", function(s) Config.ESP_Chams=s end)
 VisTab:Toggle("Full Bright", function(s) Lighting.Brightness=s and 2 or 1; Lighting.GlobalShadows=not s end)
@@ -284,47 +356,21 @@ local function ESP(p) if p==LocalPlayer then return end; RunService.RenderSteppe
 end) end
 for _,p in pairs(Players:GetPlayers()) do ESP(p) end; Players.PlayerAdded:Connect(ESP)
 
--- >>> 5. ABOUT (NEW STYLING) <<<
-local AboutTab = UI:Tab("About")
-
--- Profile Card
-local ProfileCard = Instance.new("Frame"); ProfileCard.Size=UDim2.new(1,0,0,70); ProfileCard.BackgroundColor3=Color3.fromRGB(35,35,35); Instance.new("UICorner",ProfileCard).CornerRadius=UDim.new(0,8); ProfileCard.Parent=AboutTab.Container(75)
--- Profile Image
-local ProfImg = Instance.new("ImageLabel", ProfileCard); ProfImg.Size=UDim2.new(0,50,0,50); ProfImg.Position=UDim2.new(0.05,0,0.15,0); ProfImg.BackgroundColor3=Color3.fromRGB(50,50,50); Instance.new("UICorner",ProfImg).CornerRadius=UDim.new(1,0)
-spawn(function()
-    local content, isReady = Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-    if isReady then ProfImg.Image = content end
+-- >>> 6. TOOLS <<<
+local ToolTab = UI:Tab("Tools", "rbxassetid://7072721682") -- Setting/Tool Icon
+ToolTab:Button("Get Tap TP", Color3.fromRGB(0, 180, 0), function()
+    local tool = Instance.new("Tool"); tool.Name="Tap Teleport"; tool.RequiresHandle=false; tool.Parent=LocalPlayer.Backpack
+    tool.Activated:Connect(function() local mouse=LocalPlayer:GetMouse(); if mouse.Hit then LocalPlayer.Character:MoveTo(mouse.Hit.Position) end end)
+    StarterGui:SetCore("SendNotification", {Title="Item Added", Text="Check Backpack!"})
 end)
--- Text Info
-local DispName = Instance.new("TextLabel", ProfileCard); DispName.Text=LocalPlayer.DisplayName; DispName.Size=UDim2.new(0.6,0,0.3,0); DispName.Position=UDim2.new(0.25,0,0.2,0); DispName.TextColor3=Color3.new(1,1,1); DispName.Font=Enum.Font.GothamBold; DispName.TextXAlignment=Enum.TextXAlignment.Left; DispName.BackgroundTransparency=1; DispName.TextSize=12
-local RealName = Instance.new("TextLabel", ProfileCard); RealName.Text="@"..LocalPlayer.Name; RealName.Size=UDim2.new(0.6,0,0.3,0); RealName.Position=UDim2.new(0.25,0,0.5,0); RealName.TextColor3=Color3.fromRGB(150,150,150); RealName.Font=Enum.Font.Gotham; RealName.TextXAlignment=Enum.TextXAlignment.Left; RealName.BackgroundTransparency=1; RealName.TextSize=10
+ToolTab:Button("Server Hop", nil, function() local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100")).data; TeleportService:TeleportToPlaceInstance(game.PlaceId, servers[math.random(1,#servers)].id) end)
 
--- Game Info
-local GInfo = AboutTab:Container(60)
-local function AddLine(t, v) 
-    local l=Instance.new("TextLabel", GInfo); l.Size=UDim2.new(1,0,0,15); l.BackgroundTransparency=1; l.Text=t..": "..v; l.TextColor3=Color3.new(0.8,0.8,0.8); l.Font=Enum.Font.Gotham; l.TextSize=10; l.TextXAlignment=Enum.TextXAlignment.Left 
-end
-local GameName = "Unknown"
-pcall(function() GameName = MarketplaceService:GetProductInfo(game.PlaceId).Name end)
-AddLine("Game", GameName)
-AddLine("Place ID", game.PlaceId)
-AddLine("Acc Age", LocalPlayer.AccountAge.." Days")
+-- >>> 7. SETTINGS <<<
+local SetTab = UI:Tab("Settings", "rbxassetid://7072721682")
+SetTab:Label("Theme Border Color")
+SetTab:ColorPicker()
+SetTab:Label("Menu Options")
+SetTab:Input("Change Title...", function(t) if UIRefs.TitleLabel then UIRefs.TitleLabel.Text = t end end)
+SetTab:Input("Change Logo URL...", function(t) if UIRefs.OpenBtnImage then UIRefs.OpenBtnImage.Image = t end end)
 
--- >>> 6. SETTINGS (NEW) <<<
-local SetTab = UI:Tab("Settings")
-
-SetTab:Label("Menu Theme Color")
-SetTab:ColorPicker() -- Custom Element created in UI Engine
-
-SetTab:Label("Change Open Logo (URL)")
-SetTab:Input("Image URL (rbxassetid or http)...", function(t)
-    if UIRefs.OpenBtnImage then
-        UIRefs.OpenBtnImage.Image = t
-    end
-end)
-
-SetTab:Button("Unload Script", Color3.fromRGB(200,50,50), function()
-    if game.CoreGui:FindFirstChild("VanzyV16_Profile") then game.CoreGui.VanzyV16_Profile:Destroy() end
-end)
-
-StarterGui:SetCore("SendNotification", {Title="VANZY V16", Text="Rainbow Profile Ready!"})
+StarterGui:SetCore("SendNotification", {Title="VANZY V17", Text="Animated & Icons Loaded!"})
