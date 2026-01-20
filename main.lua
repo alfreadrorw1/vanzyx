@@ -1,6 +1,6 @@
 --[[
-    PROJECT: VANZYXXX V22 FINAL (ULTIMATE)
-    STATUS: SKY CHANGER + WEAPON SKINS + AURA FIX
+    PROJECT: VANZYXXX V22 FINAL (MAXIMUM)
+    STATUS: ALL ASSETS ADDED + SPLIT TABS
     PLATFORM: MOBILE ONLY (Android/iOS)
     DEV: Gemini AI
 ]]
@@ -46,7 +46,7 @@ local Config = {
     FlingAura = false, AutoFarmTouch = false, LagSwitch = false, ClickDelete = false,
     
     -- Settings
-    MenuTitle = "VANZY V22 FINAL"
+    MenuTitle = "VANZY V22 MAX"
 }
 
 local UIRefs = { MainFrame = nil, Sidebar = nil, Content = nil, Title = nil }
@@ -65,7 +65,7 @@ local FlyWidgetFrame = nil
 
 function Library:Create()
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "VanzyV22_Ultimate"
+    ScreenGui.Name = "VanzyV22_Max"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = GetGuiParent()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -84,20 +84,15 @@ function Library:Create()
     spawn(function() local t=0; while true do t=t+0.01; if t>1 then t=0 end; Title.TextColor3=Color3.fromHSV(t,1,1); wait(0.05) end end)
 
     ----------------------------------------------------------------------------
-    -- [TOP BAR BUTTONS: Min(-), Layout(+/-), Close(X)]
+    -- [TOP BAR BUTTONS]
     ----------------------------------------------------------------------------
     local BtnContainer = Instance.new("Frame", MainFrame)
     BtnContainer.Size = UDim2.new(0, 90, 0, 25)
     BtnContainer.Position = UDim2.new(1, -95, 0, 0)
     BtnContainer.BackgroundTransparency = 1
 
-    -- X (CLOSE)
     local CloseX = Instance.new("TextButton", BtnContainer); CloseX.Size=UDim2.new(0,25,0,25); CloseX.Position=UDim2.new(1,-25,0,0); CloseX.BackgroundTransparency=1; CloseX.Text="X"; CloseX.TextColor3=Color3.fromRGB(255,50,50); CloseX.Font=Enum.Font.GothamBlack; CloseX.TextSize=16
-
-    -- + (LAYOUT)
     local LayoutBtn = Instance.new("TextButton", BtnContainer); LayoutBtn.Size=UDim2.new(0,25,0,25); LayoutBtn.Position=UDim2.new(1,-50,0,0); LayoutBtn.BackgroundTransparency=1; LayoutBtn.Text="+"; LayoutBtn.TextColor3=Color3.fromRGB(255,200,50); LayoutBtn.Font=Enum.Font.GothamBlack; LayoutBtn.TextSize=18
-
-    -- _ (MINIMIZE)
     local MinBtn = Instance.new("TextButton", BtnContainer); MinBtn.Size=UDim2.new(0,25,0,25); MinBtn.Position=UDim2.new(1,-75,0,0); MinBtn.BackgroundTransparency=1; MinBtn.Text="_"; MinBtn.TextColor3=Color3.fromRGB(50,200,255); MinBtn.Font=Enum.Font.GothamBlack; MinBtn.TextSize=16
 
     -- CONFIRMATION POPUP
@@ -114,7 +109,7 @@ function Library:Create()
     local Content = Instance.new("Frame", MainFrame); Content.Size=UDim2.new(1,-100,1,-25); Content.Position=UDim2.new(0,100,0,25); Content.BackgroundTransparency=1
     UIRefs.Content = Content
 
-    -- DRAG FUNCTION
+    -- DRAG & LOGIC
     local function Drag(f)
         local d, ds, sp
         f.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then d=true; ds=i.Position; sp=f.Position; i.Changed:Connect(function() if i.UserInputState==Enum.UserInputState.End then d=false end end) end end)
@@ -122,34 +117,16 @@ function Library:Create()
     end
     Drag(MainFrame); Drag(OpenBtn)
 
-    -- LOGIC
-    local isOpen = false
-    local isVertical = false
-
+    local isOpen, isVertical = false, false
     local function ToggleMenu(state)
         isOpen = state
-        if isOpen then
-            MainFrame.Visible = true; OpenBtn.Visible = false
-            TweenService:Create(UIScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
-        else
-            local tw = TweenService:Create(UIScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0})
-            tw:Play(); tw.Completed:Connect(function() MainFrame.Visible = false; OpenBtn.Visible = true end)
-        end
+        if isOpen then MainFrame.Visible=true; OpenBtn.Visible=false; TweenService:Create(UIScale, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Scale=1}):Play()
+        else local tw=TweenService:Create(UIScale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale=0}); tw:Play(); tw.Completed:Connect(function() MainFrame.Visible=false; OpenBtn.Visible=true end) end
     end
-
     local function ToggleLayout()
         isVertical = not isVertical
-        if isVertical then
-            LayoutBtn.Text = "-"
-            TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 200, 0, 350)}):Play()
-            Sidebar.Size = UDim2.new(0, 70, 1, -25); Content.Size = UDim2.new(1, -70, 1, -25); Content.Position = UDim2.new(0, 70, 0, 25)
-            MainFrame.Position = UDim2.new(0.5, -100, 0.5, -175)
-        else
-            LayoutBtn.Text = "+"
-            TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 380, 0, 190)}):Play()
-            Sidebar.Size = UDim2.new(0, 100, 1, -25); Content.Size = UDim2.new(1, -100, 1, -25); Content.Position = UDim2.new(0, 100, 0, 25)
-            MainFrame.Position = UDim2.new(0.5, -190, 0.5, -95)
-        end
+        if isVertical then LayoutBtn.Text="-"; TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size=UDim2.new(0,200,0,350)}):Play(); Sidebar.Size=UDim2.new(0,70,1,-25); Content.Size=UDim2.new(1,-70,1,-25); Content.Position=UDim2.new(0,70,0,25); MainFrame.Position=UDim2.new(0.5,-100,0.5,-175)
+        else LayoutBtn.Text="+"; TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size=UDim2.new(0,380,0,190)}):Play(); Sidebar.Size=UDim2.new(0,100,1,-25); Content.Size=UDim2.new(1,-100,1,-25); Content.Position=UDim2.new(0,100,0,25); MainFrame.Position=UDim2.new(0.5,-190,0.5,-95) end
     end
 
     OpenBtn.MouseButton1Click:Connect(function() ToggleMenu(true) end)
@@ -265,7 +242,7 @@ spawn(function()
     end
 end)
 
--- >>> 3. TOOLS / OBBY <<<
+-- >>> 3. TOOLS (UPDATED DELETE) <<<
 local Tool = UI:Tab("Tools")
 Tool:Toggle("Invisible", function(s) 
     if s then LocalPlayer.Character.HumanoidRootPart.Transparency=1; for _,v in pairs(LocalPlayer.Character:GetChildren()) do if v:IsA("BasePart") or v:IsA("Decal") then v.Transparency=1 end end 
@@ -300,59 +277,36 @@ Tool:Toggle("Lag Switch", function(s) settings().Network.IncomingReplicationLag=
 Tool:Toggle("Anti Void", function(s) Config.AntiVoid=s; spawn(function() while Config.AntiVoid do local c=LocalPlayer.Character; if c and c:FindFirstChild("HumanoidRootPart") then local r=Ray.new(c.HumanoidRootPart.Position,Vector3.new(0,-10,0)); if workspace:FindPartOnRay(r,c) then Config.LastGroundPos=c.HumanoidRootPart.CFrame elseif c.HumanoidRootPart.Position.Y<-50 and Config.LastGroundPos then c.HumanoidRootPart.CFrame=Config.LastGroundPos+Vector3.new(0,5,0);c.HumanoidRootPart.Velocity=Vector3.zero end end; wait(0.1) end end) end)
 Tool:Toggle("Air Jump", function(s) Config.AirJump=s; UserInputService.JumpRequest:Connect(function() if Config.AirJump and LocalPlayer.Character then LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end end) end)
 Tool:Toggle("Anti Slip", function(s) Config.AntiSlip=s; spawn(function() while Config.AntiSlip do if LocalPlayer.Character.Humanoid then LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) end;wait(1) end end) end)
-Tool:Button("Click Delete (Client)", Color3.fromRGB(200,0,0), function() local t=Instance.new("Tool",LocalPlayer.Backpack);t.Name="Delete";t.RequiresHandle=false; t.Activated:Connect(function() if Mouse.Target then Mouse.Target:Destroy() end end) end)
 Tool:Button("Get Tap TP", Color3.fromRGB(0, 180, 0), function() local t=Instance.new("Tool",LocalPlayer.Backpack);t.Name="Tap Teleport";t.RequiresHandle=false; t.Activated:Connect(function() if Mouse.Hit then LocalPlayer.Character:MoveTo(Mouse.Hit.Position) end end) end)
+Tool:Button("Delete Tool (881355752)", Color3.fromRGB(200,0,0), function() 
+    local t=Instance.new("Tool",LocalPlayer.Backpack); t.Name="Delete"; t.RequiresHandle=false; t.TextureId="rbxassetid://881355752"
+    t.Activated:Connect(function() if Mouse.Target then Mouse.Target:Destroy() end end)
+end)
 
--- >>> 4. COSMETICS (AURA & WEAPONS) <<<
-local Cos = UI:Tab("Cosmetics")
-Cos:Label("-- AURA SKINS --")
-
-local function LoadAura(id)
-    if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end
-    local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+-- >>> COMMON LOADER FUNCTIONS <<<
+local function LoadAsset(id, type)
+    StarterGui:SetCore("SendNotification", {Title="Loading", Text="Fetching Asset..."})
+    local s, asset = pcall(function() return game:GetObjects("rbxassetid://"..id)[1] end)
+    if not s or not asset then StarterGui:SetCore("SendNotification", {Title="Error", Text="Failed to load ID"}); return end
     
-    StarterGui:SetCore("SendNotification", {Title="Loading Aura", Text="Please wait..."})
-    
-    local success, asset = pcall(function() return game:GetObjects("rbxassetid://"..id)[1] end)
-    if success and asset then
+    if type == "Aura" or type == "VFX" then
+        if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end
         asset.Name = "VanzyAura"
         asset.Parent = LocalPlayer.Character
-        -- Logic: Hide Mesh, Disable Collision
-        for _,v in pairs(asset:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.CanCollide = false
-                v.Massless = true
-                v.Transparency = 1 -- "Hilangkan Karakter" (Invisible Mesh)
-            elseif v:IsA("Humanoid") then
-                v:Destroy() -- Remove Humanoid to prevent health bars/names
-            end
+        for _,v in pairs(asset:GetDescendants()) do 
+            if v:IsA("BasePart") then v.CanCollide=false; v.Massless=true; v.Transparency=1 end 
+            if v:IsA("Humanoid") then v:Destroy() end
         end
-        -- Weld
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         local pp = asset:IsA("Model") and asset.PrimaryPart or asset:FindFirstChildWhichIsA("BasePart") or asset
-        if pp and pp:IsA("BasePart") then
+        if root and pp and pp:IsA("BasePart") then
             pp.CFrame = root.CFrame
             local w = Instance.new("WeldConstraint", pp); w.Part0 = root; w.Part1 = pp
         end
-        StarterGui:SetCore("SendNotification", {Title="Success", Text="Aura Applied (Ghost Mode)!"})
-    else
-        StarterGui:SetCore("SendNotification", {Title="Error", Text="Failed to load Aura ID."})
-    end
-end
-
-Cos:Button("Aura 1: Killer Red", Color3.fromRGB(100,0,255), function() LoadAura("74417067882526") end)
-Cos:Button("Aura 2: Random Flux", Color3.fromRGB(0,200,255), function() LoadAura("106192507657319") end)
-Cos:Button("Aura 3: Super Saiyan", Color3.fromRGB(255,150,0), function() LoadAura("10545989953") end)
-Cos:Button("Remove Aura", Color3.fromRGB(200,50,50), function() if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end end)
-
-Cos:Label("-- WEAPON SKINS (RIGHT HAND) --")
-local function LoadWeapon(id)
-    local r = LocalPlayer.Character:FindFirstChild("RightHand") or LocalPlayer.Character:FindFirstChild("Right Arm")
-    if not r then return end
-    if LocalPlayer.Character:FindFirstChild("VanzyWeapon") then LocalPlayer.Character.VanzyWeapon:Destroy() end
-    
-    local success, asset = pcall(function() return game:GetObjects("rbxassetid://"..id)[1] end)
-    if success and asset then
+    elseif type == "Weapon" then
+        local r = LocalPlayer.Character:FindFirstChild("RightHand") or LocalPlayer.Character:FindFirstChild("Right Arm")
+        if not r then return end
+        if LocalPlayer.Character:FindFirstChild("VanzyWeapon") then LocalPlayer.Character.VanzyWeapon:Destroy() end
         asset.Name = "VanzyWeapon"
         asset.Parent = LocalPlayer.Character
         local handle = asset:IsA("Model") and asset.PrimaryPart or asset:FindFirstChild("Handle") or asset:FindFirstChildWhichIsA("BasePart") or asset
@@ -363,52 +317,68 @@ local function LoadWeapon(id)
         end
     end
 end
-Cos:Button("Nunchucks", Color3.fromRGB(50,50,50), function() LoadWeapon("393467000") end)
-Cos:Button("Katana", Color3.fromRGB(50,50,50), function() LoadWeapon("5249216966") end)
-Cos:Button("Uranium Bar", Color3.fromRGB(50,255,50), function() LoadWeapon("11706254515") end)
-Cos:Button("Spinner of Doom", Color3.fromRGB(100,0,0), function() LoadWeapon("517144164") end)
-Cos:Button("Rainbow Lightsaber", Color3.fromRGB(255,50,255), function() LoadWeapon("13073491349") end)
-Cos:Button("Remove Weapon", Color3.fromRGB(200,50,50), function() if LocalPlayer.Character:FindFirstChild("VanzyWeapon") then LocalPlayer.Character.VanzyWeapon:Destroy() end end)
 
--- >>> 5. WORLD (SKY CHANGER) <<<
+-- >>> 4. AURAS (SPLIT TAB) <<<
+local AT = UI:Tab("Auras")
+AT:Button("Remove Aura", Color3.fromRGB(200,50,50), function() if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end end)
+AT:Label("-- OLD --")
+AT:Button("Killer Red", Color3.fromRGB(100,0,0), function() LoadAsset("74417067882526", "Aura") end)
+AT:Button("Random Flux", Color3.fromRGB(0,200,255), function() LoadAsset("106192507657319", "Aura") end)
+AT:Button("Super Saiyan", Color3.fromRGB(255,150,0), function() LoadAsset("10545989953", "Aura") end)
+AT:Label("-- NEW --")
+AT:Button("Dark Aura VFX", Color3.fromRGB(50,0,50), function() LoadAsset("72031022600603", "Aura") end)
+AT:Button("General Aura", Color3.fromRGB(150,150,150), function() LoadAsset("134112632165590", "Aura") end)
+AT:Button("Clock Aura", Color3.fromRGB(200,150,50), function() LoadAsset("10807233179", "Aura") end)
+AT:Button("Sol's Aggression", Color3.fromRGB(255,50,50), function() LoadAsset("79836629707795", "Aura") end)
+AT:Button("Red Aura V3", Color3.fromRGB(200,0,0), function() LoadAsset("83362489061204", "Aura") end)
+AT:Button("Blue Aura", Color3.fromRGB(0,0,255), function() LoadAsset("14645384079", "Aura") end)
+
+-- >>> 5. WEAPONS (SPLIT TAB) <<<
+local WT = UI:Tab("Weapons")
+WT:Button("Remove Weapon", Color3.fromRGB(200,50,50), function() if LocalPlayer.Character:FindFirstChild("VanzyWeapon") then LocalPlayer.Character.VanzyWeapon:Destroy() end end)
+WT:Button("Nunchucks", Color3.fromRGB(50,50,50), function() LoadAsset("393467000", "Weapon") end)
+WT:Button("Katana", Color3.fromRGB(50,50,50), function() LoadAsset("5249216966", "Weapon") end)
+WT:Button("Uranium Bar", Color3.fromRGB(50,255,50), function() LoadAsset("11706254515", "Weapon") end)
+WT:Button("Spinner of Doom", Color3.fromRGB(100,0,0), function() LoadAsset("517144164", "Weapon") end)
+WT:Button("Rainbow Lightsaber", Color3.fromRGB(255,50,255), function() LoadAsset("13073491349", "Weapon") end)
+
+-- >>> 6. VFX / ANIMASI (NEW TAB) <<<
+local VT = UI:Tab("VFX/Anim")
+VT:Button("Remove VFX", Color3.fromRGB(200,50,50), function() if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end end)
+VT:Button("Particle Chaos", Color3.fromRGB(100,0,100), function() LoadAsset("9465639023", "VFX") end)
+VT:Button("Shocker Breaker", Color3.fromRGB(0,255,255), function() LoadAsset("15830624402", "VFX") end)
+VT:Button("Morphs BB", Color3.fromRGB(100,200,100), function() LoadAsset("8969795366", "VFX") end)
+VT:Button("Stun Hand (Slap)", Color3.fromRGB(255,200,0), function() LoadAsset("9380694477", "VFX") end)
+
+-- >>> 7. WORLD / SKY (SPLIT TAB + NEW SKIES) <<<
 local World = UI:Tab("World")
 local function SetSky(id)
     pcall(function()
         if Lighting:FindFirstChild("VanzySky") then Lighting.VanzySky:Destroy() end
-        local s = Instance.new("Sky")
-        s.Name = "VanzySky"
-        -- Try to load asset to check if it's a Sky object or just use ID texture
-        local obj = game:GetObjects("rbxassetid://"..id)[1]
-        if obj and obj:IsA("Sky") then
-            obj.Name = "VanzySky"
-            obj.Parent = Lighting
-        elseif obj and obj:IsA("Model") and obj:FindFirstChildWhichIsA("Sky") then
-            local realSky = obj:FindFirstChildWhichIsA("Sky")
-            realSky.Name = "VanzySky"
-            realSky.Parent = Lighting
-        else
-            -- Fallback if user provided Decal ID (Texture reuse)
-            s.SkyboxBk = "rbxassetid://"..id
-            s.SkyboxDn = "rbxassetid://"..id
-            s.SkyboxFt = "rbxassetid://"..id
-            s.SkyboxLf = "rbxassetid://"..id
-            s.SkyboxRt = "rbxassetid://"..id
-            s.SkyboxUp = "rbxassetid://"..id
-            s.Parent = Lighting
-        end
+        local s = Instance.new("Sky"); s.Name="VanzySky"; s.SkyboxBk="rbxassetid://"..id; s.SkyboxDn="rbxassetid://"..id; s.SkyboxFt="rbxassetid://"..id; s.SkyboxLf="rbxassetid://"..id; s.SkyboxRt="rbxassetid://"..id; s.SkyboxUp="rbxassetid://"..id; s.Parent=Lighting
     end)
 end
-World:Label("-- SKY CHANGER --")
+World:Button("Reset Sky", Color3.fromRGB(100,100,100), function() if Lighting:FindFirstChild("VanzySky") then Lighting.VanzySky:Destroy() end end)
+World:Label("-- OLD --")
 World:Button("Galaxy Nebula Space", Color3.fromRGB(20,0,50), function() SetSky("18618101697") end)
 World:Button("Galaxy Sky", Color3.fromRGB(50,0,100), function() SetSky("11284918730") end)
 World:Button("Cartoon Sky", Color3.fromRGB(0,150,255), function() SetSky("15313376186") end)
 World:Button("Pink Sky", Color3.fromRGB(255,100,150), function() SetSky("12635340429") end)
-World:Button("Obby Sky (Try)", Color3.fromRGB(50,200,200), function() SetSky("127719608807122") end)
+World:Button("Obby Sky", Color3.fromRGB(50,200,200), function() SetSky("127719608807122") end)
 World:Button("Neon City", Color3.fromRGB(150,0,255), function() SetSky("4683026098") end)
 World:Button("CakeUp Galaxy", Color3.fromRGB(100,50,150), function() SetSky("15983996673") end)
-World:Button("Reset Sky (Default)", Color3.fromRGB(100,100,100), function() if Lighting:FindFirstChild("VanzySky") then Lighting.VanzySky:Destroy() end end)
+World:Label("-- NEW --")
+World:Button("Space Sky", Color3.fromRGB(20,20,50), function() SetSky("11336743666") end)
+World:Button("Halloween Sky", Color3.fromRGB(200,100,0), function() SetSky("184827381") end)
+World:Button("Space Sky HD", Color3.fromRGB(0,0,100), function() SetSky("16262385808") end)
+World:Button("Tropical Sunset", Color3.fromRGB(255,150,50), function() SetSky("169210648") end)
+World:Button("Sunless Space", Color3.fromRGB(10,10,30), function() SetSky("9322203902") end)
+World:Button("Dark Green", Color3.fromRGB(0,50,0), function() SetSky("566612745") end)
+World:Button("Purple Sky", Color3.fromRGB(100,0,150), function() SetSky("5094389324") end)
+World:Button("Desert Sunset", Color3.fromRGB(200,100,50), function() SetSky("18618065108") end)
+World:Button("Paris Night", Color3.fromRGB(0,0,50), function() SetSky("10644495614") end)
 
--- >>> 6. MAP SCANNER <<<
+-- >>> 8. MAP SCANNER <<<
 local CPTab = UI:Tab("Auto CP")
 local CPContainer = nil
 local function ScanMap()
@@ -428,7 +398,7 @@ end
 CPTab:Button("SCAN MAP NOW", Color3.fromRGB(0,150,255), ScanMap)
 CPContainer = CPTab:Container(120)
 
--- >>> 7. SETTINGS <<<
+-- >>> 9. SETTINGS <<<
 local Set = UI:Tab("Settings")
 Set:Input("Set Menu Title...", function(t) Config.MenuTitle=t; UIRefs.Title.Text=t end)
 Set:Input("Set Player Name...", function(t) if LocalPlayer.Character:FindFirstChild("Humanoid") then LocalPlayer.Character.Humanoid.DisplayName=t end end)
@@ -441,4 +411,4 @@ Set:ColorPicker()
 Set:Slider("Menu Transparency", 0, 1, function(v) UIRefs.MainFrame.BackgroundTransparency=v end)
 Set:Button("Rejoin Server", nil, function() TeleportService:Teleport(game.PlaceId) end)
 
-StarterGui:SetCore("SendNotification", {Title="VANZY V22", Text="ULTIMATE: World + Skins Updated!"})
+StarterGui:SetCore("SendNotification", {Title="VANZY V22", Text="MAXIMUM: All Assets Loaded!"})
