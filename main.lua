@@ -1,11 +1,11 @@
 --[[
-    PROJECT: VanzyxxxXXX V23 ULTIMATE (SKY & AURA UPDATE)
+    PROJECT: VanzyxxxXXX V23 ULTIMATE (CP LIST FIXED)
     PLATFORM: MOBILE ONLY (DELTA/HYDROGEN/ARCEUS/CODEX)
-    UPDATES: 
-    - Folder Style SaveCP
-    - Fixed Fly (Camera Follow)
-    - Sky & Aura from GitHub JSON
-    - Aura Cleaner (Only Effects Visible)
+    
+    FIXES:
+    - CP Manager: Map Folders now appear correctly.
+    - ZIndex: Adjusted so buttons/folders are always on top.
+    - Auto Refresh: List updates immediately when opening menu.
 ]]
 
 local Players = game:GetService("Players")
@@ -24,12 +24,11 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
 -- CONFIG & LINKS
-local LogoURL = "https://files.catbox.moe/bm2fcp.jpg"
+local LogoURL = "https://files.catbox.moe/io8o2d.png"
 local LocalPath = "VanzyLogoV23.jpg"
 pcall(function() if not isfile(LocalPath) then writefile(LocalPath, game:HttpGet(LogoURL)) end end)
 local FinalLogo = (getcustomasset and isfile(LocalPath)) and getcustomasset(LocalPath) or LogoURL
 
--- GITHUB URLS (Pastikan Raw Link benar)
 local GithubAura = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/aura.json"
 local GithubSky = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/sky.json"
 local AutoCPFile = "SaveCp.json"
@@ -69,8 +68,10 @@ local Library = {}
 local FlyWidgetFrame = nil
 local MiniWidget = nil 
 local CPManagerFrame = nil 
+local CPMainList = nil 
+local CPDetailList = nil 
+local RefreshCPList -- Forward declaration
 
--- THEME LOOP
 spawn(function()
     while true do
         if Config.RainbowTheme then
@@ -90,7 +91,7 @@ end)
 
 function Library:Create()
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "VanzyV23_WorldUpdate"
+    ScreenGui.Name = "Vanzyxxx"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = GetGuiParent()
     
@@ -147,12 +148,11 @@ function Library:Create()
     MinBtn.MouseButton1Click:Connect(function() ToggleMenu(false) end)
     LayoutBtn.MouseButton1Click:Connect(ToggleLayout)
 
-    -- POPUP & CONFIRMATION
-    local GlobalPopup = Instance.new("Frame", ScreenGui); GlobalPopup.Size = UDim2.new(0,240,0,130); GlobalPopup.Position = UDim2.new(0.5,-120,0.5,-65); GlobalPopup.BackgroundColor3 = Theme.Main; GlobalPopup.Visible = false; GlobalPopup.ZIndex = 30; Instance.new("UICorner", GlobalPopup).CornerRadius = UDim.new(0,12); Instance.new("UIStroke", GlobalPopup).Color = Theme.Accent; Instance.new("UIStroke", GlobalPopup).Thickness = 2
-    local GPTitle = Instance.new("TextLabel", GlobalPopup); GPTitle.Size = UDim2.new(1,0,0,30); GPTitle.BackgroundTransparency = 1; GPTitle.Text = "CONFIRMATION"; GPTitle.TextColor3 = Theme.Accent; GPTitle.Font = Enum.Font.GothamBlack; GPTitle.TextSize = 14
-    local GPDesc = Instance.new("TextLabel", GlobalPopup); GPDesc.Size = UDim2.new(0.9,0,0.4,0); GPDesc.Position = UDim2.new(0.05,0,0.25,0); GPDesc.BackgroundTransparency = 1; GPDesc.Text = "Are you sure?"; GPDesc.TextColor3 = Theme.Text; GPDesc.Font = Enum.Font.Gotham; GPDesc.TextSize = 12; GPDesc.TextWrapped = true
-    local GPYes = Instance.new("TextButton", GlobalPopup); GPYes.Size = UDim2.new(0.4,0,0.25,0); GPYes.Position = UDim2.new(0.05,0,0.7,0); GPYes.BackgroundColor3 = Theme.Confirm; GPYes.Text = "YES"; GPYes.TextColor3 = Theme.Text; Instance.new("UICorner", GPYes).CornerRadius = UDim.new(0,6)
-    local GPNo = Instance.new("TextButton", GlobalPopup); GPNo.Size = UDim2.new(0.4,0,0.25,0); GPNo.Position = UDim2.new(0.55,0,0.7,0); GPNo.BackgroundColor3 = Theme.ButtonRed; GPNo.Text = "NO"; GPNo.TextColor3 = Theme.Text; Instance.new("UICorner", GPNo).CornerRadius = UDim.new(0,6)
+    local GlobalPopup = Instance.new("Frame", ScreenGui); GlobalPopup.Size = UDim2.new(0,240,0,130); GlobalPopup.Position = UDim2.new(0.5,-120,0.5,-65); GlobalPopup.BackgroundColor3 = Theme.Main; GlobalPopup.Visible = false; GlobalPopup.ZIndex = 50; Instance.new("UICorner", GlobalPopup).CornerRadius = UDim.new(0,12); Instance.new("UIStroke", GlobalPopup).Color = Theme.Accent; Instance.new("UIStroke", GlobalPopup).Thickness = 2
+    local GPTitle = Instance.new("TextLabel", GlobalPopup); GPTitle.Size = UDim2.new(1,0,0,30); GPTitle.BackgroundTransparency = 1; GPTitle.Text = "CONFIRMATION"; GPTitle.TextColor3 = Theme.Accent; GPTitle.Font = Enum.Font.GothamBlack; GPTitle.TextSize = 14; GPTitle.ZIndex=51
+    local GPDesc = Instance.new("TextLabel", GlobalPopup); GPDesc.Size = UDim2.new(0.9,0,0.4,0); GPDesc.Position = UDim2.new(0.05,0,0.25,0); GPDesc.BackgroundTransparency = 1; GPDesc.Text = "Are you sure?"; GPDesc.TextColor3 = Theme.Text; GPDesc.Font = Enum.Font.Gotham; GPDesc.TextSize = 12; GPDesc.TextWrapped = true; GPDesc.ZIndex=51
+    local GPYes = Instance.new("TextButton", GlobalPopup); GPYes.Size = UDim2.new(0.4,0,0.25,0); GPYes.Position = UDim2.new(0.05,0,0.7,0); GPYes.BackgroundColor3 = Theme.Confirm; GPYes.Text = "YES"; GPYes.TextColor3 = Theme.Text; Instance.new("UICorner", GPYes).CornerRadius = UDim.new(0,6); GPYes.ZIndex=51
+    local GPNo = Instance.new("TextButton", GlobalPopup); GPNo.Size = UDim2.new(0.4,0,0.25,0); GPNo.Position = UDim2.new(0.55,0,0.7,0); GPNo.BackgroundColor3 = Theme.ButtonRed; GPNo.Text = "NO"; GPNo.TextColor3 = Theme.Text; Instance.new("UICorner", GPNo).CornerRadius = UDim.new(0,6); GPNo.ZIndex=51
 
     local PopupAction = nil
     GPNo.MouseButton1Click:Connect(function() GlobalPopup.Visible = false; PopupAction = nil end)
@@ -175,7 +175,6 @@ function Library:Create()
         end)
     end)
 
-    -- FLY WIDGET
     local FW = Instance.new("Frame", ScreenGui); FW.Size=UDim2.new(0,140,0,50); FW.Position=UDim2.new(0.5,-70,0.1,0); FW.BackgroundColor3=Theme.Sidebar; FW.Visible=false; Instance.new("UICorner",FW).CornerRadius=UDim.new(0,8); Instance.new("UIStroke",FW).Color=Theme.Accent; Drag(FW); FlyWidgetFrame=FW
     local SL = Instance.new("TextLabel", FW); SL.Size=UDim2.new(1,0,0.4,0); SL.BackgroundTransparency=1; SL.Text="SPEED: 50"; SL.TextColor3=Theme.Text; SL.Font=Enum.Font.GothamBold; SL.TextSize=11
     local FBMinus = Instance.new("TextButton", FW); FBMinus.Size=UDim2.new(0.25,0,0.5,0); FBMinus.Position=UDim2.new(0.05,0,0.45,0); FBMinus.BackgroundColor3=Theme.Button; FBMinus.Text="-"; FBMinus.TextColor3=Theme.Text; Instance.new("UICorner", FBMinus)
@@ -194,23 +193,32 @@ function Library:Create()
         end
     end)
 
-    -- MINI WIDGET
     local MW = Instance.new("Frame", ScreenGui); MW.Name="MiniWidget"; MW.Size=UDim2.new(0,140,0,45); MW.Position=UDim2.new(0.8,-70,0.4,0); MW.BackgroundColor3=Theme.Main; MW.Visible=false; Instance.new("UICorner",MW).CornerRadius=UDim.new(0,8); Instance.new("UIStroke",MW).Color=Theme.Accent; Instance.new("UIStroke",MW).Thickness=2; MiniWidget=MW
     local DragBtn = Instance.new("TextButton", MW); DragBtn.Size=UDim2.new(0,30,1,0); DragBtn.BackgroundTransparency=1; DragBtn.Text="[+]"; DragBtn.TextColor3=Theme.Accent; DragBtn.Font=Enum.Font.GothamBlack; DragBtn.TextSize=14
     local SaveAct = Instance.new("TextButton", MW); SaveAct.Size=UDim2.new(0,70,1,0); SaveAct.Position=UDim2.new(0,30,0,0); SaveAct.BackgroundTransparency=1; SaveAct.Text="SAVE"; SaveAct.TextColor3=Theme.Text; SaveAct.Font=Enum.Font.GothamBlack; SaveAct.TextSize=16
     local OpenMenu = Instance.new("TextButton", MW); OpenMenu.Size=UDim2.new(0,30,1,0); OpenMenu.Position=UDim2.new(0,100,0,0); OpenMenu.BackgroundTransparency=1; OpenMenu.Text="[×]"; OpenMenu.TextColor3=Color3.fromRGB(255,200,50); OpenMenu.Font=Enum.Font.GothamBlack; OpenMenu.TextSize=14
     Drag(MW, DragBtn)
 
-    -- CP MANAGER
-    local CPF = Instance.new("Frame", ScreenGui); CPF.Name="CPManager"; CPF.Size=UDim2.new(0,300,0,350); CPF.Position=UDim2.new(0.5,-150,0.5,-175); CPF.BackgroundColor3=Theme.Main; CPF.Visible=false; CPF.ZIndex=15; Instance.new("UICorner",CPF).CornerRadius=UDim.new(0,10); Instance.new("UIStroke",CPF).Color=Theme.Accent; CPManagerFrame=CPF
-    local CPFHeader = Instance.new("TextLabel", CPF); CPFHeader.Size=UDim2.new(1,-30,0,30); CPFHeader.Position=UDim2.new(0,10,0,0); CPFHeader.BackgroundTransparency=1; CPFHeader.Text="CHECKPOINT MANAGER"; CPFHeader.TextColor3=Theme.Accent; CPFHeader.Font=Enum.Font.GothamBlack; CPFHeader.TextXAlignment=Enum.TextXAlignment.Left
-    local CPFClose = Instance.new("TextButton", CPF); CPFClose.Size=UDim2.new(0,30,0,30); CPFClose.Position=UDim2.new(1,-30,0,0); CPFClose.BackgroundTransparency=1; CPFClose.Text="X"; CPFClose.TextColor3=Color3.fromRGB(255,50,50); CPFClose.Font=Enum.Font.GothamBold; CPFClose.TextSize=18
-    local CPScroll = Instance.new("ScrollingFrame", CPF); CPScroll.Size=UDim2.new(1,-10,0.8,-5); CPScroll.Position=UDim2.new(0,5,0.1,0); CPScroll.BackgroundTransparency=1; CPScroll.ScrollBarThickness=2; Instance.new("UIListLayout", CPScroll).Padding=UDim.new(0,4)
-    local CPLoadLocal = Instance.new("TextButton", CPF); CPLoadLocal.Size=UDim2.new(0.45,0,0,30); CPLoadLocal.Position=UDim2.new(0.03,0,0.9,0); CPLoadLocal.BackgroundColor3=Theme.ButtonDark; CPLoadLocal.Text="Load Local"; CPLoadLocal.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadLocal)
-    local CPLoadGit = Instance.new("TextButton", CPF); CPLoadGit.Size=UDim2.new(0.45,0,0,30); CPLoadGit.Position=UDim2.new(0.52,0,0.9,0); CPLoadGit.BackgroundColor3=Theme.Button; CPLoadGit.Text="Load Github"; CPLoadGit.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadGit)
+    -- >>> CP MANAGER FRAME (ZINDEX & LAYOUT FIX) <<<
+    local CPF = Instance.new("Frame", ScreenGui); CPF.Name="CPManager"; CPF.Size=UDim2.new(0,320,0,380); CPF.Position=UDim2.new(0.5,-160,0.5,-190); CPF.BackgroundColor3=Theme.Main; CPF.Visible=false; CPF.ZIndex=30; Instance.new("UICorner",CPF).CornerRadius=UDim.new(0,10); Instance.new("UIStroke",CPF).Color=Theme.Accent; CPManagerFrame=CPF
+    
+    local CPFHeader = Instance.new("TextLabel", CPF); CPFHeader.Size=UDim2.new(1,-30,0,30); CPFHeader.Position=UDim2.new(0,10,0,0); CPFHeader.BackgroundTransparency=1; CPFHeader.Text="CHECKPOINT MANAGER"; CPFHeader.TextColor3=Theme.Accent; CPFHeader.Font=Enum.Font.GothamBlack; CPFHeader.TextXAlignment=Enum.TextXAlignment.Left; CPFHeader.ZIndex=31
+    
+    -- CLOSE BUTTON (Highest ZIndex)
+    local CPFClose = Instance.new("TextButton", CPF); CPFClose.Size=UDim2.new(0,30,0,30); CPFClose.Position=UDim2.new(1,-30,0,0); CPFClose.BackgroundTransparency=1; CPFClose.Text="X"; CPFClose.TextColor3=Color3.fromRGB(255,50,50); CPFClose.Font=Enum.Font.GothamBold; CPFClose.TextSize=18; CPFClose.ZIndex=35
+    
+    -- Main List (Folders)
+    local CPList = Instance.new("ScrollingFrame", CPF); CPList.Size=UDim2.new(1,-10,0.75,-5); CPList.Position=UDim2.new(0,5,0.1,0); CPList.BackgroundTransparency=1; CPList.ScrollBarThickness=2; CPList.ZIndex=31; Instance.new("UIListLayout", CPList).Padding=UDim.new(0,4); CPMainList=CPList
+    
+    -- Detail List (CPs)
+    local CPDetails = Instance.new("ScrollingFrame", CPF); CPDetails.Size=UDim2.new(1,-10,0.75,-5); CPDetails.Position=UDim2.new(0,5,0.1,0); CPDetails.BackgroundTransparency=1; CPDetails.ScrollBarThickness=2; CPDetails.Visible=false; CPDetails.ZIndex=31; Instance.new("UIListLayout", CPDetails).Padding=UDim.new(0,4); CPDetailList=CPDetails
+
+    -- BUTTONS (Fixed at bottom)
+    local CPLoadLocal = Instance.new("TextButton", CPF); CPLoadLocal.Size=UDim2.new(0.45,0,0,35); CPLoadLocal.Position=UDim2.new(0.03,0,0.88,0); CPLoadLocal.BackgroundColor3=Theme.ButtonDark; CPLoadLocal.Text="Load Local"; CPLoadLocal.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadLocal); CPLoadLocal.ZIndex=32
+    local CPLoadGit = Instance.new("TextButton", CPF); CPLoadGit.Size=UDim2.new(0.45,0,0,35); CPLoadGit.Position=UDim2.new(0.52,0,0.88,0); CPLoadGit.BackgroundColor3=Theme.Button; CPLoadGit.Text="Load Github"; CPLoadGit.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadGit); CPLoadGit.ZIndex=32
     
     CPFClose.MouseButton1Click:Connect(function() CPF.Visible = false end)
-    OpenMenu.MouseButton1Click:Connect(function() CPF.Visible = true end)
+    OpenMenu.MouseButton1Click:Connect(function() CPF.Visible = true; RefreshCPList() end) -- AUTO REFRESH
 
     local Tabs = {}
     function Library:Tab(n)
@@ -229,98 +237,43 @@ function Library:Create()
         function E:Container(h) local c=Instance.new("ScrollingFrame",P); c.Size=UDim2.new(1,0,0,h); c.BackgroundColor3=Color3.fromRGB(25,25,25); c.ScrollBarThickness=2; Instance.new("UICorner",c).CornerRadius=UDim.new(0,6); local l=Instance.new("UIListLayout",c); l.Padding=UDim.new(0,2); c.AutomaticCanvasSize = Enum.AutomaticSize.Y; return c end
         return E
     end
-    return Library, DragBtn, SaveAct, CPLoadLocal, CPLoadGit, CPScroll
+    return Library, DragBtn, SaveAct, CPLoadLocal, CPLoadGit, CPMainList, CPDetailList
 end
 
-local UI, DragBtn, SaveAct, LoadLocalBtn, LoadGitBtn, CPScroll = Library:Create()
+local UI, DragBtn, SaveAct, LoadLocalBtn, LoadGitBtn, CPMainList, CPDetailList = Library:Create()
 
 local About = UI:Tab("About")
 About:Label("Developer Info")
 About:Button("WhatsApp: 0812...", Theme.ButtonDark, function() setclipboard("https://wa.me/628123456789") end)
 About:Button("GitHub: Vanzy", Theme.ButtonDark, function() setclipboard("https://github.com/Vanzy") end)
 
--- >>> WORLD & AURA TAB <<<
-local WA = UI:Tab("World & Aura")
+local AuraTab = UI:Tab("Auras")
+local AuraContainer = AuraTab:Container(150)
 
--- SKY FUNCTION
-local function UpdateSky(id)
-    pcall(function()
-        for _,v in pairs(Lighting:GetChildren()) do if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() end end
-        local s = Instance.new("Sky")
-        s.Name = "VanzySky"
-        s.SkyboxBk = "rbxassetid://"..id
-        s.SkyboxDn = "rbxassetid://"..id
-        s.SkyboxFt = "rbxassetid://"..id
-        s.SkyboxLf = "rbxassetid://"..id
-        s.SkyboxRt = "rbxassetid://"..id
-        s.SkyboxUp = "rbxassetid://"..id
-        s.Parent = Lighting
-        StarterGui:SetCore("SendNotification", {Title="Sky", Text="Loaded!"})
-    end)
-end
-
--- AURA FUNCTION (INVISIBLE CHAR)
 local function UpdateAura(id)
     pcall(function()
         if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end
-        
         local objs = game:GetObjects("rbxassetid://"..id)
-        local aura = objs[1]
-        aura.Name = "VanzyAura"
-        
-        -- HIDE MESH/PARTS, KEEP EFFECTS
-        for _,v in pairs(aura:GetDescendants()) do
-            if v:IsA("BasePart") or v:IsA("MeshPart") then
-                v.Transparency = 1
-                v.CanCollide = false
-                v.Massless = true
-                v.CastShadow = false
-            elseif v:IsA("Decal") then
-                v.Transparency = 1
+        if objs[1] then
+            local aura = objs[1]
+            aura.Name = "VanzyAura"
+            for _,v in pairs(aura:GetDescendants()) do
+                if v:IsA("BasePart") or v:IsA("MeshPart") then
+                    v.Transparency = 1; v.CanCollide = false; v.Massless = true; v.CastShadow = false; v.Anchored = false
+                elseif v:IsA("Decal") then v.Transparency = 1 end
             end
-        end
-        
-        aura.Parent = LocalPlayer.Character
-        
-        -- WELD
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local primary = aura:IsA("Model") and aura.PrimaryPart or aura:FindFirstChildWhichIsA("BasePart")
-        
-        if root and primary then
-            primary.CFrame = root.CFrame
-            local w = Instance.new("WeldConstraint", primary)
-            w.Part0 = root
-            w.Part1 = primary
-            w.Parent = primary
-        end
-        StarterGui:SetCore("SendNotification", {Title="Aura", Text="Loaded (Effects Only)!"})
-    end)
-end
-
-WA:Label("Sky List")
-local SkyContainer = WA:Container(120)
-local function LoadSkies()
-    pcall(function()
-        for _,v in pairs(SkyContainer:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-        local JSON = HttpService:JSONDecode(game:HttpGet(GithubSky))
-        for _, s in pairs(JSON) do
-            local b = Instance.new("TextButton", SkyContainer)
-            b.Size = UDim2.new(1,0,0,25)
-            b.BackgroundColor3 = Theme.ButtonDark
-            b.Text = s.Name
-            b.TextColor3 = Theme.Text
-            b.Font = Enum.Font.Gotham
-            b.TextSize = 11
-            Instance.new("UICorner",b).CornerRadius=UDim.new(0,4)
-            b.MouseButton1Click:Connect(function() UpdateSky(s.ID) end)
+            aura.Parent = LocalPlayer.Character
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local primary = aura:IsA("Model") and aura.PrimaryPart or aura:FindFirstChildWhichIsA("BasePart")
+            if root and primary then
+                primary.CFrame = root.CFrame
+                local w = Instance.new("WeldConstraint", primary); w.Part0 = root; w.Part1 = primary; w.Parent = primary
+            end
+            StarterGui:SetCore("SendNotification", {Title="Aura", Text="Applied!"})
         end
     end)
 end
-WA:Button("Refresh Sky List (Github)", Theme.Button, LoadSkies)
-WA:Button("Reset Sky", Theme.ButtonRed, function() for _,v in pairs(Lighting:GetChildren()) do if v:IsA("Sky") then v:Destroy() end end end)
 
-WA:Label("Aura List")
-local AuraContainer = WA:Container(120)
 local function LoadAuras()
     pcall(function()
         for _,v in pairs(AuraContainer:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
@@ -336,11 +289,54 @@ local function LoadAuras()
             Instance.new("UICorner",b).CornerRadius=UDim.new(0,4)
             b.MouseButton1Click:Connect(function() UpdateAura(a.ID) end)
         end
+        StarterGui:SetCore("SendNotification", {Title="Aura", Text="List Loaded!"})
     end)
 end
-WA:Button("Refresh Aura List (Github)", Theme.Button, LoadAuras)
-WA:Button("Remove Aura", Theme.ButtonRed, function() if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end end)
+AuraTab:Button("Refresh List (GitHub)", Theme.Button, LoadAuras)
+AuraTab:Button("Reset Aura", Theme.ButtonRed, function() if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy(); StarterGui:SetCore("SendNotification", {Title="Aura", Text="Removed!"}) end end)
 
+local SkyTab = UI:Tab("Sky")
+local SkyContainer = SkyTab:Container(150)
+
+local function UpdateSky(id)
+    pcall(function()
+        for _,v in pairs(Lighting:GetChildren()) do if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() end end
+        local objects = game:GetObjects("rbxassetid://"..id)
+        if objects[1] then
+            local asset = objects[1]
+            if asset:IsA("Model") then
+                local foundSky = asset:FindFirstChildOfClass("Sky")
+                if foundSky then foundSky.Parent = Lighting else asset.Parent = Lighting end
+                local foundAtmos = asset:FindFirstChildOfClass("Atmosphere")
+                if foundAtmos then foundAtmos.Parent = Lighting end
+            elseif asset:IsA("Sky") then
+                asset.Parent = Lighting
+            end
+            StarterGui:SetCore("SendNotification", {Title="Sky", Text="Changed!"})
+        end
+    end)
+end
+
+local function LoadSkies()
+    pcall(function()
+        for _,v in pairs(SkyContainer:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+        local JSON = HttpService:JSONDecode(game:HttpGet(GithubSky))
+        for _, s in pairs(JSON) do
+            local b = Instance.new("TextButton", SkyContainer)
+            b.Size = UDim2.new(1,0,0,25)
+            b.BackgroundColor3 = Theme.ButtonDark
+            b.Text = s.Name
+            b.TextColor3 = Theme.Text
+            b.Font = Enum.Font.Gotham
+            b.TextSize = 11
+            Instance.new("UICorner",b).CornerRadius=UDim.new(0,4)
+            b.MouseButton1Click:Connect(function() UpdateSky(s.ID) end)
+        end
+        StarterGui:SetCore("SendNotification", {Title="Sky", Text="List Loaded!"})
+    end)
+end
+SkyTab:Button("Refresh List (GitHub)", Theme.Button, LoadSkies)
+SkyTab:Button("Reset Sky", Theme.ButtonRed, function() for _,v in pairs(Lighting:GetChildren()) do if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() end end; StarterGui:SetCore("SendNotification", {Title="Sky", Text="Reset!"}) end)
 
 local Mov = UI:Tab("Movement")
 Mov:Label("Fly V2 (Camera Follow)")
@@ -349,13 +345,8 @@ RunService.Heartbeat:Connect(function()
         local Root = LocalPlayer.Character.HumanoidRootPart
         local Hum = LocalPlayer.Character.Humanoid
         Hum.PlatformStand = true
-        
         local Velocity = Vector3.zero
-        if Hum.MoveDirection.Magnitude > 0 then
-            Velocity = Camera.CFrame.LookVector * Config.FlySpeed
-        else
-            Velocity = Vector3.zero
-        end
+        if Hum.MoveDirection.Magnitude > 0 then Velocity = Camera.CFrame.LookVector * Config.FlySpeed else Velocity = Vector3.zero end
         Root.AssemblyLinearVelocity = Velocity
         Root.AssemblyAngularVelocity = Vector3.zero
     end
@@ -380,33 +371,47 @@ local function GetMapName() local success, info = pcall(function() return Market
 local function LoadData() if isfile(AutoCPFile) then return HttpService:JSONDecode(readfile(AutoCPFile)) end return {} end
 local function SaveData(data) writefile(AutoCPFile, HttpService:JSONEncode(data)) end
 
-local function RefreshCPList()
-    for _,v in pairs(CPScroll:GetChildren()) do if v:IsA("Frame") or v:IsA("TextButton") then v:Destroy() end end
+-- REFRESH FUNCTION (THE FIX)
+function RefreshCPList()
+    -- Clear both lists
+    for _,v in pairs(CPMainList:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    for _,v in pairs(CPDetailList:GetChildren()) do if v:IsA("Frame") or v:IsA("TextButton") then v:Destroy() end end
+    
     local Data = LoadData()
     
+    -- Show Main List, Hide Details
+    CPMainList.Visible = true
+    CPDetailList.Visible = false
+
     for id, mapInfo in pairs(Data) do
-        local MapFrame = Instance.new("Frame", CPScroll); MapFrame.Size=UDim2.new(1,0,0,30); MapFrame.BackgroundColor3=Theme.Sidebar; Instance.new("UICorner", MapFrame)
-        local MapBtn = Instance.new("TextButton", MapFrame); MapBtn.Size=UDim2.new(0.8,0,1,0); MapBtn.BackgroundTransparency=1; MapBtn.Text="📁 "..mapInfo.MapName; MapBtn.TextColor3=Theme.Accent; MapBtn.TextXAlignment=Enum.TextXAlignment.Left; MapBtn.Font=Enum.Font.GothamBold; MapBtn.TextSize=12
+        local MapFrame = Instance.new("Frame", CPMainList); MapFrame.Size=UDim2.new(1,0,0,30); MapFrame.BackgroundColor3=Theme.Sidebar; MapFrame.ZIndex=32; Instance.new("UICorner", MapFrame)
+        local MapBtn = Instance.new("TextButton", MapFrame); MapBtn.Size=UDim2.new(0.8,0,1,0); MapBtn.BackgroundTransparency=1; MapBtn.Text="📁 "..mapInfo.MapName; MapBtn.TextColor3=Theme.Accent; MapBtn.TextXAlignment=Enum.TextXAlignment.Left; MapBtn.Font=Enum.Font.GothamBold; MapBtn.TextSize=12; MapBtn.ZIndex=33
         Instance.new("UIPadding",MapBtn).PaddingLeft=UDim.new(0,5)
-        local DelMap = Instance.new("TextButton", MapFrame); DelMap.Size=UDim2.new(0.2,0,1,0); DelMap.Position=UDim2.new(0.8,0,0,0); DelMap.BackgroundColor3=Theme.ButtonRed; DelMap.Text="DEL"; DelMap.TextColor3=Theme.Text; Instance.new("UICorner", DelMap)
+        local DelMap = Instance.new("TextButton", MapFrame); DelMap.Size=UDim2.new(0.2,0,1,0); DelMap.Position=UDim2.new(0.8,0,0,0); DelMap.BackgroundColor3=Theme.ButtonRed; DelMap.Text="DEL"; DelMap.TextColor3=Theme.Text; Instance.new("UICorner", DelMap); DelMap.ZIndex=33
         
-        local CPContainer = Instance.new("Frame", CPScroll); CPContainer.Name = "Container_"..id; CPContainer.Size = UDim2.new(1,0,0,0); CPContainer.BackgroundTransparency = 1; CPContainer.Visible = false; CPContainer.ClipsDescendants = true
-        local CPLayout = Instance.new("UIListLayout", CPContainer); CPLayout.Padding = UDim.new(0,3)
+        MapBtn.MouseButton1Click:Connect(function()
+            CPMainList.Visible = false
+            CPDetailList.Visible = true
+            
+            for _,v in pairs(CPDetailList:GetChildren()) do if v:IsA("Frame") or v:IsA("TextButton") then v:Destroy() end end
+            
+            local BackBtn = Instance.new("TextButton", CPDetailList); BackBtn.Size=UDim2.new(1,0,0,25); BackBtn.BackgroundColor3=Theme.ButtonRed; BackBtn.Text="< BACK"; BackBtn.TextColor3=Theme.Text; Instance.new("UICorner", BackBtn); BackBtn.ZIndex=33
+            BackBtn.MouseButton1Click:Connect(function() CPDetailList.Visible = false; CPMainList.Visible = true end)
+            
+            for i, cp in ipairs(mapInfo.CPs) do
+                local CPFrame = Instance.new("Frame", CPDetailList); CPFrame.Size=UDim2.new(0.9,0,0,25); CPFrame.BackgroundColor3=Theme.Button; Instance.new("UICorner", CPFrame); CPFrame.ZIndex=32
+                local TPBtn = Instance.new("TextButton", CPFrame); TPBtn.Size=UDim2.new(0.8,0,1,0); TPBtn.BackgroundTransparency=1; TPBtn.Text="📍 "..cp.Name; TPBtn.TextColor3=Theme.Text; TPBtn.TextSize=11; TPBtn.ZIndex=33
+                local DelCP = Instance.new("TextButton", CPFrame); DelCP.Size=UDim2.new(0.2,0,1,0); DelCP.Position=UDim2.new(0.8,0,0,0); DelCP.BackgroundColor3=Theme.ButtonRed; DelCP.Text="X"; DelCP.TextColor3=Theme.Text; Instance.new("UICorner", DelCP); DelCP.ZIndex=33
+                
+                TPBtn.MouseButton1Click:Connect(function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(cp.X, cp.Y + 3, cp.Z) end end)
+                DelCP.MouseButton1Click:Connect(function() Library:Confirm("Delete CP: "..cp.Name.."?", function() table.remove(Data[id].CPs, i); SaveData(Data); MapBtn.MouseButton1Click:Fire() end) end)
+            end
+            CPDetailList.CanvasSize = UDim2.new(0,0,0, CPDetailList.UIListLayout.AbsoluteContentSize.Y + 50)
+        end)
         
-        local contentHeight = 0
-        for i, cp in ipairs(mapInfo.CPs) do
-            local CPFrame = Instance.new("Frame", CPContainer); CPFrame.Size=UDim2.new(0.9,0,0,25); CPFrame.Position=UDim2.new(0.05,0,0,0); CPFrame.BackgroundColor3=Theme.Button; Instance.new("UICorner", CPFrame)
-            local TPBtn = Instance.new("TextButton", CPFrame); TPBtn.Size=UDim2.new(0.8,0,1,0); TPBtn.BackgroundTransparency=1; TPBtn.Text="📍 "..cp.Name; TPBtn.TextColor3=Theme.Text; TPBtn.TextSize=11
-            local DelCP = Instance.new("TextButton", CPFrame); DelCP.Size=UDim2.new(0.2,0,1,0); DelCP.Position=UDim2.new(0.8,0,0,0); DelCP.BackgroundColor3=Theme.ButtonRed; DelCP.Text="X"; DelCP.TextColor3=Theme.Text; Instance.new("UICorner", DelCP)
-            TPBtn.MouseButton1Click:Connect(function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(cp.X, cp.Y + 3, cp.Z) end end)
-            DelCP.MouseButton1Click:Connect(function() Library:Confirm("Delete CP: "..cp.Name.."?", function() table.remove(Data[id].CPs, i); SaveData(Data); RefreshCPList() end) end)
-            contentHeight = contentHeight + 28
-        end
-        CPContainer.Size = UDim2.new(1,0,0, contentHeight)
-        MapBtn.MouseButton1Click:Connect(function() CPContainer.Visible = not CPContainer.Visible; CPScroll.CanvasSize = UDim2.new(0,0,0, CPScroll.UIListLayout.AbsoluteContentSize.Y + 50) end)
         DelMap.MouseButton1Click:Connect(function() Library:Confirm("Delete Map FOLDER: "..mapInfo.MapName.."?", function() Data[id] = nil; SaveData(Data); RefreshCPList() end) end)
     end
-    CPScroll.CanvasSize = UDim2.new(0,0,0, CPScroll.UIListLayout.AbsoluteContentSize.Y + 50)
+    CPMainList.CanvasSize = UDim2.new(0,0,0, CPMainList.UIListLayout.AbsoluteContentSize.Y + 50)
 end
 
 SaveAct.MouseButton1Click:Connect(function()
@@ -417,8 +422,8 @@ SaveAct.MouseButton1Click:Connect(function()
     Library:Confirm("Save Position as "..CPName.."?", function() local Pos = LocalPlayer.Character.HumanoidRootPart.Position; table.insert(Data[ID].CPs, {Name = CPName, X = Pos.X, Y = Pos.Y, Z = Pos.Z}); SaveData(Data); StarterGui:SetCore("SendNotification", {Title="Saved", Text=CPName}); RefreshCPList() end)
 end)
 
-LoadLocalBtn.MouseButton1Click:Connect(RefreshCPList)
-LoadGitBtn.MouseButton1Click:Connect(function() pcall(function() local WebData = game:HttpGet(GithubCP); writefile(AutoCPFile, WebData); RefreshCPList(); StarterGui:SetCore("SendNotification", {Title="Success", Text="Loaded from GitHub"}) end) end)
+LoadLocalBtn.MouseButton1Click:Connect(function() RefreshCPList(); StarterGui:SetCore("SendNotification", {Title="Success", Text="Refreshed Local!"}) end)
+LoadGitBtn.MouseButton1Click:Connect(function() pcall(function() local WebData = game:HttpGet(GithubCP); writefile(AutoCPFile, WebData); wait(0.1); RefreshCPList(); StarterGui:SetCore("SendNotification", {Title="Success", Text="Loaded from GitHub"}) end) end)
 
 CP_UI:Label("Quick Controls")
 CP_UI:Toggle("Show Mini Button", function(s) MiniWidget.Visible = s end)
@@ -469,4 +474,4 @@ Set:Button("Rejoin Server", Theme.ButtonDark, function() TeleportService:Telepor
 local vu = game:GetService("VirtualUser")
 LocalPlayer.Idled:Connect(function() vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame); wait(1); vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame) end)
 
-StarterGui:SetCore("SendNotification", {Title="Vanzyxxx", Text="World & Aura Loaded!"})
+StarterGui:SetCore("SendNotification", {Title="Vanzyxxx", Text="Final UI Fix Loaded!"})
