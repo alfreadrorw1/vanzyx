@@ -1,13 +1,3 @@
---[[
-    PROJECT: VanzyxxxXXX V23 ULTIMATE (CP LIST FIXED)
-    PLATFORM: MOBILE ONLY (DELTA/HYDROGEN/ARCEUS/CODEX)
-    
-    FIXES:
-    - CP Manager: Map Folders now appear correctly.
-    - ZIndex: Adjusted so buttons/folders are always on top.
-    - Auto Refresh: List updates immediately when opening menu.
-]]
-
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -22,10 +12,11 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
 -- CONFIG & LINKS
 local LogoURL = "https://files.catbox.moe/io8o2d.png"
-local LocalPath = "VanzyLogoV23.jpg"
+local LocalPath = "VanzyLogo.jpg"
 pcall(function() if not isfile(LocalPath) then writefile(LocalPath, game:HttpGet(LogoURL)) end end)
 local FinalLogo = (getcustomasset and isfile(LocalPath)) and getcustomasset(LocalPath) or LogoURL
 
@@ -37,12 +28,13 @@ local GithubCP = "https://raw.githubusercontent.com/alfreadrorw1/vanzyx/main/Sav
 local Config = {
     FlySpeed = 50, Flying = false, Noclip = false, InfJump = false, 
     SpeedHack = false, SpeedVal = 50,
-    HoldJump = false, HoldPower = 0, MaxHoldPower = 150, Charging = false,
     ESP_Box = false, ESP_Name = false, ESP_Health = false,
-    AntiVoid = false, FlingAura = false,
     MenuTitle = "Vanzyxxx",
     RainbowTheme = false,
-    CustomColor = Color3.fromRGB(160, 32, 240)
+    CustomColor = Color3.fromRGB(160, 32, 240),
+    AutoPlaying = false,
+    TapTP = false,
+    LastSaveTime = 0
 }
 
 local UIRefs = { MainFrame = nil, Sidebar = nil, Content = nil, Title = nil, MainStroke = nil, OpenBtnStroke = nil }
@@ -61,7 +53,8 @@ local Theme = {
     Button = Color3.fromRGB(45, 25, 60),
     ButtonDark = Color3.fromRGB(35, 20, 50),
     ButtonRed = Color3.fromRGB(100, 30, 30),
-    Confirm = Color3.fromRGB(40, 100, 40)
+    Confirm = Color3.fromRGB(40, 100, 40),
+    PlayBtn = Color3.fromRGB(255, 170, 0)
 }
 
 local Library = {}
@@ -164,12 +157,16 @@ function Library:Create()
 
     CloseX.MouseButton1Click:Connect(function()
         Library:Confirm("Close script?", function()
-            Config.Flying = false; Config.SpeedHack = false
+            Config.Flying = false; Config.SpeedHack = false; Config.TapTP = false
             if LocalPlayer.Character then
                  local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
                  if hum then hum.PlatformStand = false; hum.WalkSpeed = 16 end
                  local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                 if root then root.AssemblyLinearVelocity = Vector3.zero end
+                 if root then 
+                    root.AssemblyLinearVelocity = Vector3.zero
+                    if root:FindFirstChild("FlyVelocity") then root.FlyVelocity:Destroy() end
+                    if root:FindFirstChild("FlyGyro") then root.FlyGyro:Destroy() end
+                 end
             end
             ScreenGui:Destroy()
         end)
@@ -183,13 +180,22 @@ function Library:Create()
     
     FBMinus.MouseButton1Click:Connect(function() Config.FlySpeed=math.max(10,Config.FlySpeed-10); SL.Text="SPEED: "..Config.FlySpeed end)
     FBPlus.MouseButton1Click:Connect(function() Config.FlySpeed=Config.FlySpeed+10; SL.Text="SPEED: "..Config.FlySpeed end)
+    
+    -- [[ UPDATED FLY BUTTON LOGIC ]]
     FBToggle.MouseButton1Click:Connect(function() 
         Config.Flying = not Config.Flying 
         FBToggle.Text = Config.Flying and "ON" or "OFF"
         FBToggle.BackgroundColor3 = Config.Flying and Theme.Accent or Theme.ButtonRed
+        
         if not Config.Flying and LocalPlayer.Character then
+            -- RESET CHARACTER WHEN OFF
             LocalPlayer.Character.Humanoid.PlatformStand = false
-            LocalPlayer.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+            local root = LocalPlayer.Character.HumanoidRootPart
+            if root then
+                root.AssemblyLinearVelocity = Vector3.zero
+                if root:FindFirstChild("FlyVelocity") then root.FlyVelocity:Destroy() end
+                if root:FindFirstChild("FlyGyro") then root.FlyGyro:Destroy() end
+            end
         end
     end)
 
@@ -199,26 +205,21 @@ function Library:Create()
     local OpenMenu = Instance.new("TextButton", MW); OpenMenu.Size=UDim2.new(0,30,1,0); OpenMenu.Position=UDim2.new(0,100,0,0); OpenMenu.BackgroundTransparency=1; OpenMenu.Text="[×]"; OpenMenu.TextColor3=Color3.fromRGB(255,200,50); OpenMenu.Font=Enum.Font.GothamBlack; OpenMenu.TextSize=14
     Drag(MW, DragBtn)
 
-    -- >>> CP MANAGER FRAME (ZINDEX & LAYOUT FIX) <<<
+    -- >>> CP MANAGER FRAME <<<
     local CPF = Instance.new("Frame", ScreenGui); CPF.Name="CPManager"; CPF.Size=UDim2.new(0,320,0,380); CPF.Position=UDim2.new(0.5,-160,0.5,-190); CPF.BackgroundColor3=Theme.Main; CPF.Visible=false; CPF.ZIndex=30; Instance.new("UICorner",CPF).CornerRadius=UDim.new(0,10); Instance.new("UIStroke",CPF).Color=Theme.Accent; CPManagerFrame=CPF
     
     local CPFHeader = Instance.new("TextLabel", CPF); CPFHeader.Size=UDim2.new(1,-30,0,30); CPFHeader.Position=UDim2.new(0,10,0,0); CPFHeader.BackgroundTransparency=1; CPFHeader.Text="CHECKPOINT MANAGER"; CPFHeader.TextColor3=Theme.Accent; CPFHeader.Font=Enum.Font.GothamBlack; CPFHeader.TextXAlignment=Enum.TextXAlignment.Left; CPFHeader.ZIndex=31
-    
-    -- CLOSE BUTTON (Highest ZIndex)
     local CPFClose = Instance.new("TextButton", CPF); CPFClose.Size=UDim2.new(0,30,0,30); CPFClose.Position=UDim2.new(1,-30,0,0); CPFClose.BackgroundTransparency=1; CPFClose.Text="X"; CPFClose.TextColor3=Color3.fromRGB(255,50,50); CPFClose.Font=Enum.Font.GothamBold; CPFClose.TextSize=18; CPFClose.ZIndex=35
     
-    -- Main List (Folders)
     local CPList = Instance.new("ScrollingFrame", CPF); CPList.Size=UDim2.new(1,-10,0.75,-5); CPList.Position=UDim2.new(0,5,0.1,0); CPList.BackgroundTransparency=1; CPList.ScrollBarThickness=2; CPList.ZIndex=31; Instance.new("UIListLayout", CPList).Padding=UDim.new(0,4); CPMainList=CPList
-    
-    -- Detail List (CPs)
     local CPDetails = Instance.new("ScrollingFrame", CPF); CPDetails.Size=UDim2.new(1,-10,0.75,-5); CPDetails.Position=UDim2.new(0,5,0.1,0); CPDetails.BackgroundTransparency=1; CPDetails.ScrollBarThickness=2; CPDetails.Visible=false; CPDetails.ZIndex=31; Instance.new("UIListLayout", CPDetails).Padding=UDim.new(0,4); CPDetailList=CPDetails
 
-    -- BUTTONS (Fixed at bottom)
-    local CPLoadLocal = Instance.new("TextButton", CPF); CPLoadLocal.Size=UDim2.new(0.45,0,0,35); CPLoadLocal.Position=UDim2.new(0.03,0,0.88,0); CPLoadLocal.BackgroundColor3=Theme.ButtonDark; CPLoadLocal.Text="Load Local"; CPLoadLocal.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadLocal); CPLoadLocal.ZIndex=32
-    local CPLoadGit = Instance.new("TextButton", CPF); CPLoadGit.Size=UDim2.new(0.45,0,0,35); CPLoadGit.Position=UDim2.new(0.52,0,0.88,0); CPLoadGit.BackgroundColor3=Theme.Button; CPLoadGit.Text="Load Github"; CPLoadGit.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadGit); CPLoadGit.ZIndex=32
+    local CPLoadLocal = Instance.new("TextButton", CPF); CPLoadLocal.Size=UDim2.new(0.3,0,0,35); CPLoadLocal.Position=UDim2.new(0.03,0,0.88,0); CPLoadLocal.BackgroundColor3=Theme.ButtonDark; CPLoadLocal.Text="Load Local"; CPLoadLocal.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadLocal); CPLoadLocal.ZIndex=32
+    local CPPlayBtn = Instance.new("TextButton", CPF); CPPlayBtn.Size=UDim2.new(0.3,0,0,35); CPPlayBtn.Position=UDim2.new(0.35,0,0.88,0); CPPlayBtn.BackgroundColor3=Theme.PlayBtn; CPPlayBtn.Text="PLAY"; CPPlayBtn.TextColor3=Theme.Text; CPPlayBtn.Font = Enum.Font.GothamBlack; Instance.new("UICorner", CPPlayBtn); CPPlayBtn.ZIndex=32
+    local CPLoadGit = Instance.new("TextButton", CPF); CPLoadGit.Size=UDim2.new(0.3,0,0,35); CPLoadGit.Position=UDim2.new(0.67,0,0.88,0); CPLoadGit.BackgroundColor3=Theme.Button; CPLoadGit.Text="Load Github"; CPLoadGit.TextColor3=Theme.Text; Instance.new("UICorner", CPLoadGit); CPLoadGit.ZIndex=32
     
-    CPFClose.MouseButton1Click:Connect(function() CPF.Visible = false end)
-    OpenMenu.MouseButton1Click:Connect(function() CPF.Visible = true; RefreshCPList() end) -- AUTO REFRESH
+    CPFClose.MouseButton1Click:Connect(function() CPF.Visible = false; Config.AutoPlaying = false end)
+    OpenMenu.MouseButton1Click:Connect(function() CPF.Visible = true; RefreshCPList() end)
 
     local Tabs = {}
     function Library:Tab(n)
@@ -237,57 +238,35 @@ function Library:Create()
         function E:Container(h) local c=Instance.new("ScrollingFrame",P); c.Size=UDim2.new(1,0,0,h); c.BackgroundColor3=Color3.fromRGB(25,25,25); c.ScrollBarThickness=2; Instance.new("UICorner",c).CornerRadius=UDim.new(0,6); local l=Instance.new("UIListLayout",c); l.Padding=UDim.new(0,2); c.AutomaticCanvasSize = Enum.AutomaticSize.Y; return c end
         return E
     end
-    return Library, DragBtn, SaveAct, CPLoadLocal, CPLoadGit, CPMainList, CPDetailList
+    return Library, DragBtn, SaveAct, CPLoadLocal, CPLoadGit, CPMainList, CPDetailList, CPPlayBtn
 end
 
-local UI, DragBtn, SaveAct, LoadLocalBtn, LoadGitBtn, CPMainList, CPDetailList = Library:Create()
+local UI, DragBtn, SaveAct, LoadLocalBtn, LoadGitBtn, CPMainList, CPDetailList, CPPlayBtn = Library:Create()
 
-local About = UI:Tab("About")
-About:Label("Developer Info")
-About:Button("WhatsApp: 0812...", Theme.ButtonDark, function() setclipboard("https://wa.me/628123456789") end)
-About:Button("GitHub: Vanzy", Theme.ButtonDark, function() setclipboard("https://github.com/Vanzy") end)
-
+-- [[ AURA & SKY TABS ]]
 local AuraTab = UI:Tab("Auras")
 local AuraContainer = AuraTab:Container(150)
-
 local function UpdateAura(id)
     pcall(function()
         if LocalPlayer.Character:FindFirstChild("VanzyAura") then LocalPlayer.Character.VanzyAura:Destroy() end
         local objs = game:GetObjects("rbxassetid://"..id)
         if objs[1] then
-            local aura = objs[1]
-            aura.Name = "VanzyAura"
-            for _,v in pairs(aura:GetDescendants()) do
-                if v:IsA("BasePart") or v:IsA("MeshPart") then
-                    v.Transparency = 1; v.CanCollide = false; v.Massless = true; v.CastShadow = false; v.Anchored = false
-                elseif v:IsA("Decal") then v.Transparency = 1 end
-            end
+            local aura = objs[1]; aura.Name = "VanzyAura"
+            for _,v in pairs(aura:GetDescendants()) do if v:IsA("BasePart") or v:IsA("MeshPart") then v.Transparency=1;v.CanCollide=false;v.Massless=true;v.CastShadow=false;v.Anchored=false elseif v:IsA("Decal") then v.Transparency=1 end end
             aura.Parent = LocalPlayer.Character
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             local primary = aura:IsA("Model") and aura.PrimaryPart or aura:FindFirstChildWhichIsA("BasePart")
-            if root and primary then
-                primary.CFrame = root.CFrame
-                local w = Instance.new("WeldConstraint", primary); w.Part0 = root; w.Part1 = primary; w.Parent = primary
-            end
+            if root and primary then primary.CFrame = root.CFrame; local w = Instance.new("WeldConstraint", primary); w.Part0 = root; w.Part1 = primary; w.Parent = primary end
             StarterGui:SetCore("SendNotification", {Title="Aura", Text="Applied!"})
         end
     end)
 end
-
 local function LoadAuras()
     pcall(function()
         for _,v in pairs(AuraContainer:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
         local JSON = HttpService:JSONDecode(game:HttpGet(GithubAura))
         for _, a in pairs(JSON) do
-            local b = Instance.new("TextButton", AuraContainer)
-            b.Size = UDim2.new(1,0,0,25)
-            b.BackgroundColor3 = Theme.ButtonDark
-            b.Text = a.Name
-            b.TextColor3 = Theme.Text
-            b.Font = Enum.Font.Gotham
-            b.TextSize = 11
-            Instance.new("UICorner",b).CornerRadius=UDim.new(0,4)
-            b.MouseButton1Click:Connect(function() UpdateAura(a.ID) end)
+            local b = Instance.new("TextButton", AuraContainer); b.Size = UDim2.new(1,0,0,25); b.BackgroundColor3 = Theme.ButtonDark; b.Text = a.Name; b.TextColor3 = Theme.Text; b.Font = Enum.Font.Gotham; b.TextSize = 11; Instance.new("UICorner",b).CornerRadius=UDim.new(0,4); b.MouseButton1Click:Connect(function() UpdateAura(a.ID) end)
         end
         StarterGui:SetCore("SendNotification", {Title="Aura", Text="List Loaded!"})
     end)
@@ -297,40 +276,22 @@ AuraTab:Button("Reset Aura", Theme.ButtonRed, function() if LocalPlayer.Characte
 
 local SkyTab = UI:Tab("Sky")
 local SkyContainer = SkyTab:Container(150)
-
 local function UpdateSky(id)
     pcall(function()
         for _,v in pairs(Lighting:GetChildren()) do if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() end end
         local objects = game:GetObjects("rbxassetid://"..id)
         if objects[1] then
-            local asset = objects[1]
-            if asset:IsA("Model") then
-                local foundSky = asset:FindFirstChildOfClass("Sky")
-                if foundSky then foundSky.Parent = Lighting else asset.Parent = Lighting end
-                local foundAtmos = asset:FindFirstChildOfClass("Atmosphere")
-                if foundAtmos then foundAtmos.Parent = Lighting end
-            elseif asset:IsA("Sky") then
-                asset.Parent = Lighting
-            end
+            local asset = objects[1]; if asset:IsA("Model") then local foundSky = asset:FindFirstChildOfClass("Sky"); if foundSky then foundSky.Parent = Lighting else asset.Parent = Lighting end; local foundAtmos = asset:FindFirstChildOfClass("Atmosphere"); if foundAtmos then foundAtmos.Parent = Lighting end elseif asset:IsA("Sky") then asset.Parent = Lighting end
             StarterGui:SetCore("SendNotification", {Title="Sky", Text="Changed!"})
         end
     end)
 end
-
 local function LoadSkies()
     pcall(function()
         for _,v in pairs(SkyContainer:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
         local JSON = HttpService:JSONDecode(game:HttpGet(GithubSky))
         for _, s in pairs(JSON) do
-            local b = Instance.new("TextButton", SkyContainer)
-            b.Size = UDim2.new(1,0,0,25)
-            b.BackgroundColor3 = Theme.ButtonDark
-            b.Text = s.Name
-            b.TextColor3 = Theme.Text
-            b.Font = Enum.Font.Gotham
-            b.TextSize = 11
-            Instance.new("UICorner",b).CornerRadius=UDim.new(0,4)
-            b.MouseButton1Click:Connect(function() UpdateSky(s.ID) end)
+            local b = Instance.new("TextButton", SkyContainer); b.Size = UDim2.new(1,0,0,25); b.BackgroundColor3 = Theme.ButtonDark; b.Text = s.Name; b.TextColor3 = Theme.Text; b.Font = Enum.Font.Gotham; b.TextSize = 11; Instance.new("UICorner",b).CornerRadius=UDim.new(0,4); b.MouseButton1Click:Connect(function() UpdateSky(s.ID) end)
         end
         StarterGui:SetCore("SendNotification", {Title="Sky", Text="List Loaded!"})
     end)
@@ -338,92 +299,243 @@ end
 SkyTab:Button("Refresh List (GitHub)", Theme.Button, LoadSkies)
 SkyTab:Button("Reset Sky", Theme.ButtonRed, function() for _,v in pairs(Lighting:GetChildren()) do if v:IsA("Sky") or v:IsA("Atmosphere") then v:Destroy() end end; StarterGui:SetCore("SendNotification", {Title="Sky", Text="Reset!"}) end)
 
-local Mov = UI:Tab("Movement")
-Mov:Label("Fly V2 (Camera Follow)")
-RunService.Heartbeat:Connect(function()
-    if Config.Flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local Root = LocalPlayer.Character.HumanoidRootPart
-        local Hum = LocalPlayer.Character.Humanoid
-        Hum.PlatformStand = true
-        local Velocity = Vector3.zero
-        if Hum.MoveDirection.Magnitude > 0 then Velocity = Camera.CFrame.LookVector * Config.FlySpeed else Velocity = Vector3.zero end
-        Root.AssemblyLinearVelocity = Velocity
-        Root.AssemblyAngularVelocity = Vector3.zero
+-- [[ ITEMS TAB ]]
+local ItemTab = UI:Tab("Items")
+ItemTab:Label("Click/Tap Utilities")
+
+-- FIXED TAP TP LOGIC (DRAG DETECTION)
+ItemTab:Toggle("Tap to Teleport", function(s) 
+    Config.TapTP = s 
+end)
+
+local TapStartPos = Vector2.zero
+local IsTapping = false
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not Config.TapTP or gpe then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        IsTapping = true
+        TapStartPos = UserInputService:GetMouseLocation()
     end
 end)
+
+UserInputService.InputEnded:Connect(function(input, gpe)
+    if not Config.TapTP or gpe then return end
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and IsTapping then
+        IsTapping = false
+        local EndPos = UserInputService:GetMouseLocation()
+        if (EndPos - TapStartPos).Magnitude < 15 then 
+            local ray = Camera:ViewportPointToRay(EndPos.X, EndPos.Y)
+            local res = workspace:Raycast(ray.Origin, ray.Direction * 1000)
+            if res and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local root = LocalPlayer.Character.HumanoidRootPart
+                root.CFrame = CFrame.new(res.Position + Vector3.new(0, 3, 0))
+            end
+        end
+    end
+end)
+
+-- [[ MOVEMENT TAB ]]
+local Mov = UI:Tab("Movement")
+Mov:Label("Fly V3 (Fixed Gravity & Tilt)")
+
+-- COMPLETELY REWRITTEN FLY LOGIC
+-- Uses BodyVelocity for stability and BodyGyro for Tilt Animation
+RunService.Heartbeat:Connect(function()
+    if not Config.Flying then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChild("Humanoid")
+    if not root or not hum then return end
+
+    -- Enable PlatformStand to disable default physics/animations
+    hum.PlatformStand = true
+
+    -- Velocity Handler
+    local bv = root:FindFirstChild("FlyVelocity")
+    if not bv then
+        bv = Instance.new("BodyVelocity")
+        bv.Name = "FlyVelocity"
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Parent = root
+    end
+
+    -- Gyro Handler (For Rotation/Tilt)
+    local bg = root:FindFirstChild("FlyGyro")
+    if not bg then
+        bg = Instance.new("BodyGyro")
+        bg.Name = "FlyGyro"
+        bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bg.P = 10000 -- Responsiveness
+        bg.D = 100 -- Damping
+        bg.Parent = root
+    end
+
+    -- Calculate Movement Direction
+    local moveDir = hum.MoveDirection
+    local camCFrame = Camera.CFrame
+    local targetVelocity = Vector3.zero
+
+    if moveDir.Magnitude > 0 then
+        targetVelocity = camCFrame.LookVector * Config.FlySpeed
+    else
+        targetVelocity = Vector3.zero
+    end
+    
+    bv.Velocity = targetVelocity
+
+    -- Calculate Tilt Animation
+    -- Forward/Backward Tilt
+    local forwardTilt = 0
+    local sideTilt = 0
+    
+    -- Getting Controls (W,S,A,D) relative to camera
+    local lv = camCFrame.LookVector
+    local rv = camCFrame.RightVector
+    local dotFwd = moveDir:Dot(lv)
+    local dotRight = moveDir:Dot(rv)
+
+    if moveDir.Magnitude > 0 then
+        -- Tilt forward (negative X rotation) when moving forward
+        if dotFwd > 0.5 then forwardTilt = -45 end
+        -- Tilt backward (positive X rotation) when moving backward
+        if dotFwd < -0.5 then forwardTilt = 25 end
+        -- Tilt sideways (Z rotation)
+        if dotRight > 0.5 then sideTilt = -45 end -- Right
+        if dotRight < -0.5 then sideTilt = 45 end -- Left
+    end
+
+    -- Smoothly interpolate current CFrame to target tilt
+    local targetCFrame = camCFrame * CFrame.Angles(math.rad(forwardTilt), 0, math.rad(sideTilt))
+    bg.CFrame = targetCFrame
+end)
+
 Mov:Toggle("Fly (Menu)", function(s) Config.Flying=s; FlyWidgetFrame.Visible=s end)
 Mov:Toggle("Speed Hack", function(s) Config.SpeedHack=s; spawn(function() while Config.SpeedHack do LocalPlayer.Character.Humanoid.WalkSpeed=Config.SpeedVal;wait() end;LocalPlayer.Character.Humanoid.WalkSpeed=16 end) end)
 Mov:Slider("Speed Value", 16, 200, function(v) Config.SpeedVal=v end)
 Mov:Label("Jump Modifiers")
 Mov:Toggle("Infinite Jump", function(s) Config.InfJump=s end)
 UserInputService.JumpRequest:Connect(function() if Config.InfJump then LocalPlayer.Character.Humanoid:ChangeState("Jumping") end end)
-Mov:Toggle("Hold-to-Jump (Mobile)", function(s) Config.HoldJump = s end)
-Mov:Slider("Max Hold Power", 50, 300, function(v) Config.MaxHoldPower = v end)
-UserInputService.InputBegan:Connect(function(input, gpe) if gpe then return end; if Config.HoldJump and (input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Space) then Config.Charging = true; Config.HoldPower = 0; spawn(function() while Config.Charging and Config.HoldJump do Config.HoldPower = math.min(Config.HoldPower + 5, Config.MaxHoldPower); StarterGui:SetCore("SendNotification", {Title="Charging...", Text="Power: "..Config.HoldPower, Duration=0.2}); wait(0.05) end end) end end)
-UserInputService.InputEnded:Connect(function(input) if Config.HoldJump and (input.UserInputType == Enum.UserInputType.Touch or input.KeyCode == Enum.KeyCode.Space) then Config.Charging = false; if LocalPlayer.Character then local Hum = LocalPlayer.Character.Humanoid; Hum.JumpPower = math.max(50, Config.HoldPower); Hum:ChangeState(Enum.HumanoidStateType.Jumping); wait(0.2); Hum.JumpPower = 50 end end end)
 Mov:Label("Utility")
 Mov:Toggle("Noclip", function(s) Config.Noclip=s; RunService.Stepped:Connect(function() if Config.Noclip then for _,v in pairs(LocalPlayer.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide=false end end end end) end)
 Mov:Toggle("Wall Climb", function(s) Config.WallClimb=s; if s then local b=Instance.new("BodyVelocity",LocalPlayer.Character.HumanoidRootPart);b.MaxForce=Vector3.zero;RunService.RenderStepped:Connect(function() if Config.WallClimb then local r=Ray.new(LocalPlayer.Character.HumanoidRootPart.Position,LocalPlayer.Character.HumanoidRootPart.CFrame.LookVector*2);if workspace:FindPartOnRay(r,LocalPlayer.Character) then b.MaxForce=Vector3.new(0,9e9,0);b.Velocity=Vector3.new(0,20,0) else b.MaxForce=Vector3.zero end else b:Destroy() end end) end end)
 
+-- [[ S/L CP LOGIC ]]
 local CP_UI = UI:Tab("S/L CP")
 local function GetMapID() return tostring(game.PlaceId) end
 local function GetMapName() local success, info = pcall(function() return MarketplaceService:GetProductInfo(game.PlaceId) end); if success and info then return info.Name else return "Unknown Map" end end
 local function LoadData() if isfile(AutoCPFile) then return HttpService:JSONDecode(readfile(AutoCPFile)) end return {} end
 local function SaveData(data) writefile(AutoCPFile, HttpService:JSONEncode(data)) end
 
--- REFRESH FUNCTION (THE FIX)
+-- REFRESH CP LIST
 function RefreshCPList()
-    -- Clear both lists
     for _,v in pairs(CPMainList:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
     for _,v in pairs(CPDetailList:GetChildren()) do if v:IsA("Frame") or v:IsA("TextButton") then v:Destroy() end end
-    
-    local Data = LoadData()
-    
-    -- Show Main List, Hide Details
-    CPMainList.Visible = true
-    CPDetailList.Visible = false
-
+    local Data = LoadData(); CPMainList.Visible = true; CPDetailList.Visible = false
     for id, mapInfo in pairs(Data) do
         local MapFrame = Instance.new("Frame", CPMainList); MapFrame.Size=UDim2.new(1,0,0,30); MapFrame.BackgroundColor3=Theme.Sidebar; MapFrame.ZIndex=32; Instance.new("UICorner", MapFrame)
-        local MapBtn = Instance.new("TextButton", MapFrame); MapBtn.Size=UDim2.new(0.8,0,1,0); MapBtn.BackgroundTransparency=1; MapBtn.Text="📁 "..mapInfo.MapName; MapBtn.TextColor3=Theme.Accent; MapBtn.TextXAlignment=Enum.TextXAlignment.Left; MapBtn.Font=Enum.Font.GothamBold; MapBtn.TextSize=12; MapBtn.ZIndex=33
-        Instance.new("UIPadding",MapBtn).PaddingLeft=UDim.new(0,5)
+        local MapBtn = Instance.new("TextButton", MapFrame); MapBtn.Size=UDim2.new(0.8,0,1,0); MapBtn.BackgroundTransparency=1; MapBtn.Text="📁 "..mapInfo.MapName; MapBtn.TextColor3=Theme.Accent; MapBtn.TextXAlignment=Enum.TextXAlignment.Left; MapBtn.Font=Enum.Font.GothamBold; MapBtn.TextSize=12; MapBtn.ZIndex=33; Instance.new("UIPadding",MapBtn).PaddingLeft=UDim.new(0,5)
         local DelMap = Instance.new("TextButton", MapFrame); DelMap.Size=UDim2.new(0.2,0,1,0); DelMap.Position=UDim2.new(0.8,0,0,0); DelMap.BackgroundColor3=Theme.ButtonRed; DelMap.Text="DEL"; DelMap.TextColor3=Theme.Text; Instance.new("UICorner", DelMap); DelMap.ZIndex=33
-        
         MapBtn.MouseButton1Click:Connect(function()
-            CPMainList.Visible = false
-            CPDetailList.Visible = true
-            
+            CPMainList.Visible = false; CPDetailList.Visible = true
             for _,v in pairs(CPDetailList:GetChildren()) do if v:IsA("Frame") or v:IsA("TextButton") then v:Destroy() end end
-            
             local BackBtn = Instance.new("TextButton", CPDetailList); BackBtn.Size=UDim2.new(1,0,0,25); BackBtn.BackgroundColor3=Theme.ButtonRed; BackBtn.Text="< BACK"; BackBtn.TextColor3=Theme.Text; Instance.new("UICorner", BackBtn); BackBtn.ZIndex=33
             BackBtn.MouseButton1Click:Connect(function() CPDetailList.Visible = false; CPMainList.Visible = true end)
-            
             for i, cp in ipairs(mapInfo.CPs) do
                 local CPFrame = Instance.new("Frame", CPDetailList); CPFrame.Size=UDim2.new(0.9,0,0,25); CPFrame.BackgroundColor3=Theme.Button; Instance.new("UICorner", CPFrame); CPFrame.ZIndex=32
                 local TPBtn = Instance.new("TextButton", CPFrame); TPBtn.Size=UDim2.new(0.8,0,1,0); TPBtn.BackgroundTransparency=1; TPBtn.Text="📍 "..cp.Name; TPBtn.TextColor3=Theme.Text; TPBtn.TextSize=11; TPBtn.ZIndex=33
                 local DelCP = Instance.new("TextButton", CPFrame); DelCP.Size=UDim2.new(0.2,0,1,0); DelCP.Position=UDim2.new(0.8,0,0,0); DelCP.BackgroundColor3=Theme.ButtonRed; DelCP.Text="X"; DelCP.TextColor3=Theme.Text; Instance.new("UICorner", DelCP); DelCP.ZIndex=33
-                
                 TPBtn.MouseButton1Click:Connect(function() if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(cp.X, cp.Y + 3, cp.Z) end end)
                 DelCP.MouseButton1Click:Connect(function() Library:Confirm("Delete CP: "..cp.Name.."?", function() table.remove(Data[id].CPs, i); SaveData(Data); MapBtn.MouseButton1Click:Fire() end) end)
             end
             CPDetailList.CanvasSize = UDim2.new(0,0,0, CPDetailList.UIListLayout.AbsoluteContentSize.Y + 50)
         end)
-        
         DelMap.MouseButton1Click:Connect(function() Library:Confirm("Delete Map FOLDER: "..mapInfo.MapName.."?", function() Data[id] = nil; SaveData(Data); RefreshCPList() end) end)
     end
     CPMainList.CanvasSize = UDim2.new(0,0,0, CPMainList.UIListLayout.AbsoluteContentSize.Y + 50)
 end
 
+-- DOUBLE CLICK SAVE WITH POPUP
 SaveAct.MouseButton1Click:Connect(function()
     local Data = LoadData(); local ID = GetMapID(); local Name = GetMapName()
     if not Data[ID] then Data[ID] = {MapName = Name, CPs = {}} end
+    
+    local CurrentTime = tick()
+    local IsDouble = (CurrentTime - Config.LastSaveTime) < 0.5
+    Config.LastSaveTime = CurrentTime
+
+    local Pos = LocalPlayer.Character.HumanoidRootPart.Position
     local Count = #Data[ID].CPs
-    local CPName = (Count == 0) and "Spawn" or "CP"..tostring(Count)
-    Library:Confirm("Save Position as "..CPName.."?", function() local Pos = LocalPlayer.Character.HumanoidRootPart.Position; table.insert(Data[ID].CPs, {Name = CPName, X = Pos.X, Y = Pos.Y, Z = Pos.Z}); SaveData(Data); StarterGui:SetCore("SendNotification", {Title="Saved", Text=CPName}); RefreshCPList() end)
+    
+    if IsDouble then
+        -- POPUP FOR SUMMIT
+        Library:Confirm("Save as SUMMIT (Finish)?", function()
+             table.insert(Data[ID].CPs, {Name = "SUMMIT", X = Pos.X, Y = Pos.Y, Z = Pos.Z})
+             SaveData(Data)
+             RefreshCPList()
+             StarterGui:SetCore("SendNotification", {Title="Saved", Text="SUMMIT"})
+        end)
+    else
+        -- POPUP FOR NORMAL CP
+        local CPName = (Count == 0) and "Spawn" or "CP"..tostring(Count)
+        Library:Confirm("Save as "..CPName.."?", function()
+            table.insert(Data[ID].CPs, {Name = CPName, X = Pos.X, Y = Pos.Y, Z = Pos.Z})
+            SaveData(Data)
+            RefreshCPList()
+            StarterGui:SetCore("SendNotification", {Title="Saved", Text=CPName})
+        end)
+    end
 end)
 
 LoadLocalBtn.MouseButton1Click:Connect(function() RefreshCPList(); StarterGui:SetCore("SendNotification", {Title="Success", Text="Refreshed Local!"}) end)
 LoadGitBtn.MouseButton1Click:Connect(function() pcall(function() local WebData = game:HttpGet(GithubCP); writefile(AutoCPFile, WebData); wait(0.1); RefreshCPList(); StarterGui:SetCore("SendNotification", {Title="Success", Text="Loaded from GitHub"}) end) end)
+
+-- SMART PLAY (RESUME) LOGIC
+CPPlayBtn.MouseButton1Click:Connect(function()
+    if Config.AutoPlaying then 
+        Config.AutoPlaying = false; StarterGui:SetCore("SendNotification", {Title="Auto Play", Text="Stopped"})
+        CPPlayBtn.Text = "PLAY"; CPPlayBtn.BackgroundColor3 = Theme.PlayBtn; return 
+    end
+
+    local Data = LoadData(); local ID = GetMapID()
+    if Data[ID] and Data[ID].CPs and #Data[ID].CPs > 0 then
+        Config.AutoPlaying = true
+        CPPlayBtn.Text = "STOP"; CPPlayBtn.BackgroundColor3 = Theme.ButtonRed
+        
+        spawn(function()
+            local PlayerPos = LocalPlayer.Character.HumanoidRootPart.Position
+            local ClosestIndex = 1
+            local MinDist = 9999999
+            
+            -- Find closest CP
+            for i, cp in ipairs(Data[ID].CPs) do
+                local Dist = (PlayerPos - Vector3.new(cp.X, cp.Y, cp.Z)).Magnitude
+                if Dist < MinDist then MinDist = Dist; ClosestIndex = i end
+            end
+            
+            -- Start from next CP if very close, otherwise start from closest
+            local StartIndex = (MinDist < 10) and (ClosestIndex + 1) or ClosestIndex
+            if StartIndex > #Data[ID].CPs then StartIndex = 1 end -- Loop if finished
+            
+            StarterGui:SetCore("SendNotification", {Title="Auto Play", Text="Resuming from CP"..StartIndex})
+
+            for i = StartIndex, #Data[ID].CPs do
+                if not Config.AutoPlaying then break end
+                local cp = Data[ID].CPs[i]
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(cp.X, cp.Y + 3, cp.Z)
+                end
+                task.wait(0.75)
+            end
+            Config.AutoPlaying = false; CPPlayBtn.Text = "PLAY"; CPPlayBtn.BackgroundColor3 = Theme.PlayBtn
+            StarterGui:SetCore("SendNotification", {Title="Auto Play", Text="Finished!"})
+        end)
+    else
+        StarterGui:SetCore("SendNotification", {Title="Error", Text="No CPs found!"})
+    end
+end)
 
 CP_UI:Label("Quick Controls")
 CP_UI:Toggle("Show Mini Button", function(s) MiniWidget.Visible = s end)
@@ -455,11 +567,6 @@ spawn(function()
     end
 end)
 
-local Tool = UI:Tab("Tools")
-Tool:Toggle("Invisible", function(s) if s then LocalPlayer.Character.HumanoidRootPart.Transparency=1; for _,v in pairs(LocalPlayer.Character:GetChildren()) do if v:IsA("BasePart") or v:IsA("Decal") then v.Transparency=1 end end else LocalPlayer.Character.HumanoidRootPart.Transparency=1; for _,v in pairs(LocalPlayer.Character:GetChildren()) do if v:IsA("BasePart") and v.Name~="HumanoidRootPart" then v.Transparency=0 end end end end)
-Tool:Toggle("Fling Aura", function(s) Config.FlingAura=s; if s then local fa = Instance.new("Part", LocalPlayer.Character); fa.Name="AuraRing"; fa.Size=Vector3.new(10,1,10); fa.Transparency=0.5; fa.BrickColor=BrickColor.new("Really red"); fa.Material=Enum.Material.Neon; fa.CanCollide=false; fa.Anchored=true; spawn(function() while Config.FlingAura and LocalPlayer.Character do if LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then fa.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,-3,0) * CFrame.Angles(0,tick(),0); for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer and p.Character then local r=p.Character:FindFirstChild("HumanoidRootPart"); if r and (r.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude < 10 then r.AssemblyLinearVelocity=Vector3.new(0,500,0); r.AssemblyAngularVelocity=Vector3.new(1000,1000,1000) end end end end; wait(0.1) end; fa:Destroy() end) end end)
-Tool:Toggle("Anti Void", function(s) Config.AntiVoid=s; spawn(function() while Config.AntiVoid do local c=LocalPlayer.Character; if c and c:FindFirstChild("HumanoidRootPart") then local r=Ray.new(c.HumanoidRootPart.Position,Vector3.new(0,-10,0)); if workspace:FindPartOnRay(r,c) then Config.LastGroundPos=c.HumanoidRootPart.CFrame elseif c.HumanoidRootPart.Position.Y<-50 and Config.LastGroundPos then c.HumanoidRootPart.CFrame=Config.LastGroundPos+Vector3.new(0,5,0);c.HumanoidRootPart.AssemblyLinearVelocity=Vector3.zero end end; wait(0.1) end end) end)
-
 local Set = UI:Tab("Settings")
 Set:Input("Change Menu Title...", function(t) Config.MenuTitle=t; UIRefs.Title.Text=t end)
 Set:Toggle("Rainbow Mode", function(s) Config.RainbowTheme = s end)
@@ -468,10 +575,22 @@ local R, G, B = 160, 32, 240
 Set:Slider("Red", 0, 255, function(v) R=v; Config.CustomColor = Color3.fromRGB(R, G, B) end)
 Set:Slider("Green", 0, 255, function(v) G=v; Config.CustomColor = Color3.fromRGB(R, G, B) end)
 Set:Slider("Blue", 0, 255, function(v) B=v; Config.CustomColor = Color3.fromRGB(R, G, B) end)
-Set:Toggle("FPS Booster", function(s) Config.FPSBoost = s; if s then for _,v in pairs(game:GetDescendants()) do if v:IsA("BasePart") then v.Material=Enum.Material.SmoothPlastic; v.CastShadow=false end end end end)
+
+-- IMPROVED FPS BOOSTER
+Set:Toggle("FPS Booster (Extreme)", function(s) 
+    Config.FPSBoost = s
+    if s then 
+        game.Lighting.GlobalShadows = false
+        for _,v in pairs(game:GetDescendants()) do 
+            if v:IsA("BasePart") then v.Material=Enum.Material.SmoothPlastic; v.CastShadow=false end
+            if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = 1 end
+            if v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Fire") then v.Enabled = false end
+        end 
+    end 
+end)
 Set:Button("Rejoin Server", Theme.ButtonDark, function() TeleportService:Teleport(game.PlaceId) end)
 
 local vu = game:GetService("VirtualUser")
 LocalPlayer.Idled:Connect(function() vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame); wait(1); vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame) end)
 
-StarterGui:SetCore("SendNotification", {Title="Vanzyxxx", Text="Final UI Fix Loaded!"})
+StarterGui:SetCore("SendNotification", {Title="Vanzyxxx", Text="Final V6 (Gravity & Tilt) Loaded!"})
